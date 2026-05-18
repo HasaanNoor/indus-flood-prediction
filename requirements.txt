@@ -1,0 +1,12 @@
+cdsapi
+xarray
+netcdf4
+rasterio
+rioxarray
+geopandas
+earthengine-api
+requests
+tqdm
+matplotlib
+scikit-learn
+xgboost

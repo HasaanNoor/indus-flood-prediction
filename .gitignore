@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Virtual environments
+venv/
+.env/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# macOS
+.DS_Store
+
+# Matplotlib cache
+.cache/
+.matplotlib/
+
+# Large datasets
+data_raw/
+
+# Optional processed outputs
+outputs/models/
+outputs/metrics/
+
+# Temporary files
+*.log
+*.tif
+*.nc
+data_processed/srtm/
+data_processed/clipped/
