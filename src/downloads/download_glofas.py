@@ -4,12 +4,12 @@ from pathlib import Path
 import cdsapi
 
 
-START_YEAR = int(os.getenv("START_YEAR", "2015"))
+START_YEAR = int(os.getenv("START_YEAR", "2010"))
 END_YEAR = int(os.getenv("END_YEAR", "2023"))
 
 DATASET = "cems-glofas-historical"
 OUTPUT_DIR = Path("data_raw/glofas")
-AREA = [28.5, 66.0, 23.5, 71.5]
+AREA = [31.0, 65.0, 22.0, 73.0]
 
 
 def year_range() -> range:

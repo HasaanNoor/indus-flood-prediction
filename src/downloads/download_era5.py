@@ -5,18 +5,23 @@ from pathlib import Path
 import cdsapi
 
 
-START_YEAR = int(os.getenv("START_YEAR", "2015"))
+START_YEAR = int(os.getenv("START_YEAR", "2010"))
 END_YEAR = int(os.getenv("END_YEAR", "2023"))
 
 DATASET = "reanalysis-era5-single-levels"
 OUTPUT_DIR = Path("data_raw/era5")
-AREA = [28.5, 66.0, 23.5, 71.5]
+AREA = [31.0, 65.0, 22.0, 73.0]
 VARIABLES = [
     "total_precipitation",
     "2m_temperature",
     "surface_runoff",
     "volumetric_soil_water_layer_1",
     "volumetric_soil_water_layer_2",
+    "evaporation",
+    "potential_evaporation",
+    "surface_pressure",
+    "10m_u_component_of_wind",
+    "10m_v_component_of_wind",
 ]
 
 
@@ -73,7 +78,10 @@ def main() -> None:
                 continue
 
             print(f"  Downloading ERA5 for {year}-{month_str} -> {target}")
-            client.retrieve(DATASET, build_request(year, month), str(target))
+            try:
+                client.retrieve(DATASET, build_request(year, month), str(target))
+            except Exception as e:
+                print(f"Failed download for {year}-{month_str}: {e}")
             print(f"  Saved: {target}")
 
     print("\nERA5 download pipeline complete.")
