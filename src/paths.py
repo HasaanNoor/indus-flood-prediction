@@ -21,6 +21,7 @@ CLIPPED_DIR = DATA_PROCESSED / "clipped"
 FIGURES_DIR = OUTPUTS / "figures"
 MODELS_DIR = OUTPUTS / "models"
 METRICS_DIR = OUTPUTS / "metrics"
+VALIDATION_DIR = OUTPUTS / "validation"
 
 
 def create_output_folders() -> None:
@@ -35,6 +36,7 @@ def create_output_folders() -> None:
         FIGURES_DIR,
         MODELS_DIR,
         METRICS_DIR,
+        VALIDATION_DIR,
     ]
 
     print("\nCreating preprocessing output folders...")

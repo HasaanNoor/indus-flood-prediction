@@ -1,0 +1,37 @@
+Preprocessing Validation Report
+generated_at_utc: 2026-05-20T01:26:34.676357+00:00
+
+[ERA5 daily multiyear]
+path: data_processed/era5/era5_sindh_multiyear_combined.nc
+dimensions: {'time': 4018, 'lat': 37, 'lon': 33}
+variables: ['tp', 'sro', 'e', 'pev', 't2m', 'swvl1', 'swvl2', 'sp', 'u10', 'v10']
+min_date: 2010-01-01
+max_date: 2020-12-31
+time_steps: 4018
+duplicate_timestamps: 0
+missing_daily_dates: 0
+irregular_daily_spacing_count: 0
+variable_summaries:
+  - tp: dims=('time', 'lat', 'lon'), dtype=float32, nan_count=3950202, min=0, max=517.436, mean=1.2424
+  - sro: dims=('time', 'lat', 'lon'), dtype=float32, nan_count=3950202, min=0, max=366.52, mean=0.110861
+  - e: dims=('time', 'lat', 'lon'), dtype=float32, nan_count=4126980, min=-17.4889, max=0.0858437, mean=-1.71591
+  - pev: dims=('time', 'lat', 'lon'), dtype=float32, nan_count=4126980, min=-0.0163919, max=8.57851e-05, mean=-0.00461522
+  - t2m: dims=('time', 'lat', 'lon'), dtype=float32, nan_count=3950202, min=267.239, max=317.509, mean=299.43
+  - swvl1: dims=('time', 'lat', 'lon'), dtype=float32, nan_count=3950202, min=-0.00987502, max=0.513706, mean=0.0822741
+  - swvl2: dims=('time', 'lat', 'lon'), dtype=float32, nan_count=3950202, min=-0.00137345, max=0.515888, mean=0.139334
+  - sp: dims=('time', 'lat', 'lon'), dtype=float32, nan_count=4126980, min=75164.5, max=102319, mean=96711.2
+  - u10: dims=('time', 'lat', 'lon'), dtype=float32, nan_count=4126980, min=-7.34112, max=12.5745, mean=1.41725
+  - v10: dims=('time', 'lat', 'lon'), dtype=float32, nan_count=4126980, min=-8.94163, max=11.065, mean=0.454494
+
+[GloFAS multiyear]
+path: data_processed/glofas/glofas_sindh_multiyear_clean.nc
+dimensions: {'time': 5113, 'lat': 280, 'lon': 270}
+variables: ['dis24']
+min_date: 2010-01-02
+max_date: 2024-01-01
+time_steps: 5113
+duplicate_timestamps: 0
+missing_daily_dates: 0
+irregular_daily_spacing_count: 0
+variable_summaries:
+  - dis24: dims=('time', 'lat', 'lon'), dtype=float32, nan_count=266386296, min=0, max=31431.1, mean=43.8637

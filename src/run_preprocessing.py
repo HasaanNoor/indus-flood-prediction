@@ -4,6 +4,7 @@ from process_boundary import process_boundary
 from process_era5 import process_era5
 from process_glofas import process_glofas
 from process_srtm import process_srtm
+from preprocessing_validation import write_preprocessing_report
 
 
 def main() -> None:
@@ -12,9 +13,15 @@ def main() -> None:
     inspect_all_raw_data()
     create_output_folders()
     process_boundary()
-    process_era5()
-    process_glofas()
+    era5_path = process_era5()
+    glofas_path = process_glofas()
     process_srtm()
+    write_preprocessing_report(
+        {
+            "ERA5 daily multiyear": era5_path,
+            "GloFAS multiyear": glofas_path,
+        }
+    )
 
     print("\nPreprocessing pipeline finished.")
 
