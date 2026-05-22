@@ -30,3 +30,8 @@ outputs/metrics/
 *.nc
 data_processed/srtm/
 data_processed/clipped/
+
+# large processed climate data
+data_processed/era5/*.nc
+data_processed/glofas/*.nc
+data_processed/clipped/*.nc
