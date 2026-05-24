@@ -40,6 +40,7 @@ def select_feature_columns(df: pd.DataFrame, target_column: str = DEFAULT_TARGET
         if column not in excluded
         and not column.startswith("label_")
         and not column.startswith("target_")
+        and "future" not in column.lower()
         and pd.api.types.is_numeric_dtype(df[column])
     ]
 

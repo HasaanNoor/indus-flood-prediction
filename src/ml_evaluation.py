@@ -140,6 +140,43 @@ def plot_roc_curve(
     plt.close(fig)
 
 
+def plot_grouped_roc_curves(
+    curves: list[dict[str, object]],
+    output_path: Path,
+    title: str,
+) -> None:
+    fig, ax = plt.subplots(figsize=(8.5, 7))
+    plotted = False
+
+    for curve in curves:
+        y_true = pd.Series(curve["y_true"])
+        y_score = np.asarray(curve["y_score"])
+        label = str(curve["label"])
+
+        if y_true.nunique() < 2:
+            continue
+
+        fpr, tpr, _ = roc_curve(y_true, y_score)
+        auc = roc_auc_score(y_true, y_score)
+        ax.plot(fpr, tpr, linewidth=1.8, label=f"{label} (AUC={auc:.3f})")
+        plotted = True
+
+    if plotted:
+        ax.plot([0, 1], [0, 1], linestyle="--", color="gray", linewidth=1)
+        ax.set_xlabel("False Positive Rate")
+        ax.set_ylabel("True Positive Rate")
+        ax.set_title(title)
+        ax.legend(loc="lower right", fontsize=8)
+        ax.grid(True, alpha=0.25)
+    else:
+        ax.text(0.5, 0.5, "ROC curves unavailable: test sets have one class", ha="center")
+        ax.set_axis_off()
+
+    fig.tight_layout()
+    fig.savefig(output_path, dpi=200)
+    plt.close(fig)
+
+
 def save_model(model: object, output_path: Path) -> None:
     with output_path.open("wb") as handle:
         pickle.dump(model, handle)
