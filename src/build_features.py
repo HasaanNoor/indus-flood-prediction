@@ -1,4 +1,5 @@
 from pathlib import Path
+import warnings
 
 import numpy as np
 import pandas as pd
@@ -29,6 +30,8 @@ DEFAULT_OUTPUT = PROCESSED_FEATURES_DIR / "flood_ml_features.csv"
 SPATIAL_DIMS = ("lat", "lon")
 DAILY_SUM_VARIABLES = {"tp", "sro", "ssro", "ro", "e", "evaporation"}
 TRAIN_FRACTION_FOR_Q95 = 0.65
+MAX_LOOKBACK_DAYS = 30
+MAX_FORECAST_HORIZON_DAYS = 14
 
 
 def _default_existing_path(primary: Path, fallback: Path) -> Path:
@@ -70,10 +73,98 @@ def _spatial_stats(data: xr.DataArray, prefix: str) -> pd.DataFrame:
     return xr.Dataset(stats).to_dataframe()[list(stats)]
 
 
+def _nan_stat(func, values: np.ndarray) -> np.ndarray:
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", category=RuntimeWarning)
+        return func(values, axis=1)
+
+
+def _spatial_stats_from_array(values: np.ndarray, prefix: str) -> pd.DataFrame:
+    flat = values.reshape(values.shape[0], -1)
+    return pd.DataFrame(
+        {
+            f"{prefix}_mean": _nan_stat(np.nanmean, flat),
+            f"{prefix}_min": _nan_stat(np.nanmin, flat),
+            f"{prefix}_max": _nan_stat(np.nanmax, flat),
+            f"{prefix}_std": _nan_stat(np.nanstd, flat),
+        }
+    )
+
+
+def _daily_spatial_stats(
+    data: xr.DataArray,
+    prefix: str,
+    temporal_aggregation: str,
+    chunk_size: int = 64,
+) -> pd.DataFrame:
+    dates = pd.to_datetime(data["time"].values).normalize()
+    spatial_dims = _spatial_dims(data)
+    if not spatial_dims:
+        df = data.to_dataframe(name=f"{prefix}_value").reset_index()
+        return _normalise_daily_dates(df[["time", f"{prefix}_value"]])
+
+    if dates.is_unique:
+        frames = []
+        for start in range(0, len(dates), chunk_size):
+            stop = min(start + chunk_size, len(dates))
+            values = data.isel(time=slice(start, stop)).values
+            frame = _spatial_stats_from_array(values, prefix)
+            frame.insert(0, "date", dates[start:stop])
+            frames.append(frame)
+        return pd.concat(frames, ignore_index=True)
+
+    rows = []
+    for date in pd.DatetimeIndex(dates.unique()).sort_values():
+        values = data.isel(time=np.flatnonzero(dates == date)).values
+        if values.ndim > len(spatial_dims):
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", category=RuntimeWarning)
+                if temporal_aggregation == "sum":
+                    valid_count = np.sum(np.isfinite(values), axis=0)
+                    reduced = np.nansum(values, axis=0)
+                    reduced[valid_count == 0] = np.nan
+                else:
+                    reduced = np.nanmean(values, axis=0)
+        else:
+            reduced = values
+
+        row = _spatial_stats_from_array(reduced[np.newaxis, ...], prefix).iloc[0].to_dict()
+        row["date"] = date
+        rows.append(row)
+
+    return pd.DataFrame(rows).sort_values("date").reset_index(drop=True)
+
+
 def _normalise_daily_dates(df: pd.DataFrame) -> pd.DataFrame:
     df = df.rename(columns={"time": "date"})
     df["date"] = pd.to_datetime(df["date"]).dt.normalize()
     return df.sort_values("date").drop_duplicates("date").reset_index(drop=True)
+
+
+def _missing_daily_dates(df: pd.DataFrame) -> int:
+    if df.empty or "date" not in df.columns:
+        return 0
+
+    dates = pd.DatetimeIndex(pd.to_datetime(df["date"]).dropna().sort_values().unique())
+    if dates.empty:
+        return 0
+
+    expected = pd.date_range(dates.min(), dates.max(), freq="D")
+    return len(expected.difference(dates))
+
+
+def _log_dataframe_stage(stage: str, df: pd.DataFrame) -> None:
+    if df.empty or "date" not in df.columns:
+        print(f"  {stage}: rows={len(df)}, min_date=NA, max_date=NA, missing_dates=0")
+        return
+
+    dates = pd.to_datetime(df["date"]).dropna()
+    min_date = dates.min().date() if not dates.empty else "NA"
+    max_date = dates.max().date() if not dates.empty else "NA"
+    print(
+        f"  {stage}: rows={len(df)}, min_date={min_date}, "
+        f"max_date={max_date}, missing_dates={_missing_daily_dates(df)}"
+    )
 
 
 def aggregate_era5_daily_stats(input_path: Path | None = None) -> pd.DataFrame:
@@ -90,21 +181,27 @@ def aggregate_era5_daily_stats(input_path: Path | None = None) -> pd.DataFrame:
                 continue
 
             if var_name in DAILY_SUM_VARIABLES:
-                daily = data.resample(time="1D").sum(skipna=True, min_count=1)
-                aggregation = "daily_total"
+                frame = _daily_spatial_stats(
+                    data,
+                    f"era5_{var_name}_daily_total",
+                    temporal_aggregation="sum",
+                )
             else:
-                daily = data.resample(time="1D").mean(skipna=True)
-                aggregation = "daily_mean"
+                frame = _daily_spatial_stats(
+                    data,
+                    f"era5_{var_name}_daily_mean",
+                    temporal_aggregation="mean",
+                )
 
-            frames.append(_spatial_stats(daily, f"era5_{var_name}_{aggregation}"))
+            frames.append(frame.set_index("date"))
     finally:
         ds.close()
 
     if not frames:
         raise ValueError(f"No time-varying ERA5 variables found in {input_path}")
 
-    df = _normalise_daily_dates(pd.concat(frames, axis=1).reset_index())
-    print(f"  ERA5 daily feature rows: {len(df)}")
+    df = pd.concat(frames, axis=1).reset_index().sort_values("date").reset_index(drop=True)
+    _log_dataframe_stage("ERA5 daily features", df)
     return df
 
 
@@ -121,12 +218,11 @@ def aggregate_glofas_discharge_stats(input_path: Path | None = None) -> pd.DataF
         if "time" not in data.dims:
             raise ValueError(f"GloFAS discharge variable has no time dimension: {discharge_var}")
 
-        daily = data.resample(time="1D").mean(skipna=True)
-        df = _normalise_daily_dates(_spatial_stats(daily, "glofas_discharge").reset_index())
+        df = _daily_spatial_stats(data, "glofas_discharge", temporal_aggregation="mean")
     finally:
         ds.close()
 
-    print(f"  GloFAS daily feature rows: {len(df)}")
+    _log_dataframe_stage("GloFAS daily features", df)
     return df
 
 
@@ -302,6 +398,7 @@ def add_terrain_features(df: pd.DataFrame, terrain_path: Path | None = None) -> 
     for name, value in stats.items():
         result[name] = value
     print(f"  Added {len(stats)} terrain columns.")
+    _log_dataframe_stage("terrain features", result)
     return result
 
 
@@ -310,6 +407,7 @@ def add_seasonality_features(df: pd.DataFrame) -> pd.DataFrame:
     result["month"] = result["date"].dt.month
     result["day_of_year"] = result["date"].dt.dayofyear
     result["is_monsoon"] = result["month"].between(6, 9).astype(int)
+    _log_dataframe_stage("seasonality features", result)
     return result
 
 
@@ -336,7 +434,7 @@ def add_multi_horizon_labels(
     for horizon in horizons:
         future_max = (
             future_series.iloc[::-1]
-            .rolling(window=horizon, min_periods=1)
+            .rolling(window=horizon, min_periods=horizon)
             .max()
             .iloc[::-1]
         )
@@ -347,6 +445,22 @@ def add_multi_horizon_labels(
         result.loc[future_max.isna(), label_column] = pd.NA
 
     return result
+
+
+def _drop_temporal_edge_rows(
+    df: pd.DataFrame,
+    lookback_days: int = MAX_LOOKBACK_DAYS,
+    forecast_horizon_days: int = MAX_FORECAST_HORIZON_DAYS,
+) -> pd.DataFrame:
+    if df.empty:
+        return df.reset_index(drop=True)
+
+    first_valid = df["date"].min() + pd.Timedelta(days=lookback_days - 1)
+    last_valid = df["date"].max() - pd.Timedelta(days=forecast_horizon_days)
+    return (
+        df.loc[df["date"].between(first_valid, last_valid)]
+        .reset_index(drop=True)
+    )
 
 
 def _validate_daily_continuity(df: pd.DataFrame) -> None:
@@ -373,20 +487,26 @@ def build_feature_dataframe(
 
     print("\nJoining daily ERA5 and GloFAS features...")
     df = pd.merge(era5, glofas, on="date", how="inner").sort_values("date")
-    print(f"  Joined rows: {len(df)}")
+    _log_dataframe_stage("merged feature dataframe", df)
     _validate_daily_continuity(df)
 
     df = add_seasonality_features(df)
     df = add_rainfall_features(df)
     df = add_atmospheric_features(df)
     df = add_hydrology_features(df)
+    _log_dataframe_stage("after lag/rolling features", df)
     df = add_terrain_features(df, terrain_path)
     df = add_multi_horizon_labels(df)
+    _log_dataframe_stage("after target creation", df)
 
     if drop_incomplete_rows:
         before = len(df)
-        df = df.dropna().reset_index(drop=True)
-        print(f"\nDropped incomplete rows from lags/rolling windows/targets: {before - len(df)}")
+        df = _drop_temporal_edge_rows(df)
+        print(
+            "\nDropped temporal edge rows required by lags/rolling windows/targets: "
+            f"{before - len(df)}"
+        )
+        _log_dataframe_stage("after dropna", df)
 
     return df
 

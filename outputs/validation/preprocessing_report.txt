@@ -1,27 +1,27 @@
 Preprocessing Validation Report
-generated_at_utc: 2026-05-20T01:26:34.676357+00:00
+generated_at_utc: 2026-05-23T16:16:22.920966+00:00
 
 [ERA5 daily multiyear]
 path: data_processed/era5/era5_sindh_multiyear_combined.nc
-dimensions: {'time': 4018, 'lat': 37, 'lon': 33}
+dimensions: {'time': 5113, 'lat': 37, 'lon': 33}
 variables: ['tp', 'sro', 'e', 'pev', 't2m', 'swvl1', 'swvl2', 'sp', 'u10', 'v10']
 min_date: 2010-01-01
-max_date: 2020-12-31
-time_steps: 4018
+max_date: 2023-12-31
+time_steps: 5113
 duplicate_timestamps: 0
 missing_daily_dates: 0
 irregular_daily_spacing_count: 0
 variable_summaries:
-  - tp: dims=('time', 'lat', 'lon'), dtype=float32, nan_count=3950202, min=0, max=517.436, mean=1.2424
-  - sro: dims=('time', 'lat', 'lon'), dtype=float32, nan_count=3950202, min=0, max=366.52, mean=0.110861
-  - e: dims=('time', 'lat', 'lon'), dtype=float32, nan_count=4126980, min=-17.4889, max=0.0858437, mean=-1.71591
-  - pev: dims=('time', 'lat', 'lon'), dtype=float32, nan_count=4126980, min=-0.0163919, max=8.57851e-05, mean=-0.00461522
-  - t2m: dims=('time', 'lat', 'lon'), dtype=float32, nan_count=3950202, min=267.239, max=317.509, mean=299.43
-  - swvl1: dims=('time', 'lat', 'lon'), dtype=float32, nan_count=3950202, min=-0.00987502, max=0.513706, mean=0.0822741
-  - swvl2: dims=('time', 'lat', 'lon'), dtype=float32, nan_count=3950202, min=-0.00137345, max=0.515888, mean=0.139334
-  - sp: dims=('time', 'lat', 'lon'), dtype=float32, nan_count=4126980, min=75164.5, max=102319, mean=96711.2
-  - u10: dims=('time', 'lat', 'lon'), dtype=float32, nan_count=4126980, min=-7.34112, max=12.5745, mean=1.41725
-  - v10: dims=('time', 'lat', 'lon'), dtype=float32, nan_count=4126980, min=-8.94163, max=11.065, mean=0.454494
+  - tp: dims=('time', 'lat', 'lon'), dtype=float32, nan_count=270108, min=0, max=550.348, mean=0.878457
+  - sro: dims=('time', 'lat', 'lon'), dtype=float32, nan_count=270108, min=0, max=421.636, mean=0.0681139
+  - e: dims=('time', 'lat', 'lon'), dtype=float32, nan_count=446886, min=-30.0395, max=0.3186, mean=-1.6599
+  - pev: dims=('time', 'lat', 'lon'), dtype=float32, nan_count=446886, min=-0.0163919, max=0.000100811, mean=-0.00453293
+  - t2m: dims=('time', 'lat', 'lon'), dtype=float32, nan_count=270108, min=260.254, max=317.509, mean=298.845
+  - swvl1: dims=('time', 'lat', 'lon'), dtype=float32, nan_count=270108, min=-0.00987502, max=0.515152, mean=0.0752504
+  - swvl2: dims=('time', 'lat', 'lon'), dtype=float32, nan_count=270108, min=-0.00153361, max=0.51846, mean=0.133411
+  - sp: dims=('time', 'lat', 'lon'), dtype=float32, nan_count=446886, min=75114.8, max=102391, mean=96865.8
+  - u10: dims=('time', 'lat', 'lon'), dtype=float32, nan_count=446886, min=-17.91, max=18.7146, mean=1.17389
+  - v10: dims=('time', 'lat', 'lon'), dtype=float32, nan_count=446886, min=-19.8627, max=23.1777, mean=0.318046
 
 [GloFAS multiyear]
 path: data_processed/glofas/glofas_sindh_multiyear_clean.nc
