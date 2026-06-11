@@ -1,21 +1,21 @@
 // Sentinel-1 Flood Validation for Sindh, Pakistan
-// Pilot event: 2019-07-02 to 2019-08-24
+// Pilot flood event refinement
 
-var eventStart = '2019-07-02';
-var eventEnd = '2019-08-24';
+// Peak flood period
+var eventStart = '2019-08-01';
+var eventEnd = '2019-08-15';
 
-// Baseline before flood
-var beforeStart = '2019-05-15';
-var beforeEnd = '2019-06-25';
+// Baseline period
+var beforeStart = '2019-06-15';
+var beforeEnd = '2019-06-30';
 
-// Approx Sindh bounding box.
-// Later we can replace this with exact Sindh boundary GeoJSON.
+// Approximate Sindh boundary
 var sindh = ee.Geometry.Rectangle([66.5, 23.5, 71.2, 28.6]);
 
 Map.centerObject(sindh, 7);
 Map.addLayer(sindh, {color: 'red'}, 'Sindh AOI');
 
-// Sentinel-1 collection
+// Sentinel-1 VH imagery
 var s1 = ee.ImageCollection('COPERNICUS/S1_GRD')
   .filterBounds(sindh)
   .filter(ee.Filter.eq('instrumentMode', 'IW'))
@@ -23,29 +23,50 @@ var s1 = ee.ImageCollection('COPERNICUS/S1_GRD')
   .filter(ee.Filter.eq('resolution_meters', 10))
   .select('VH');
 
-// Pre-flood and during-flood composites
+// Pre-flood composite
 var before = s1
   .filterDate(beforeStart, beforeEnd)
   .median()
   .clip(sindh);
 
+// During-flood composite
 var during = s1
   .filterDate(eventStart, eventEnd)
   .median()
   .clip(sindh);
 
-// Flooded water often appears darker in VH.
-// So we look for pixels where during-flood VH is lower than before-flood VH.
+// Difference image
 var difference = during.subtract(before);
 
-// Previous threshold was -1.5 and was too conservative.
-// Updated threshold: -0.8
-var flood = difference.lt(-0.8);
+// Examine the distribution of VH changes
+var stats = difference.reduceRegion({
+  reducer: ee.Reducer.percentile([1, 5, 10, 25, 50, 75, 90, 95, 99]),
+  geometry: sindh,
+  scale: 100,
+  maxPixels: 1e13
+});
+
+print('Difference statistics', stats);
+
+// Diagnostics
+print(
+  'Sentinel-1 images before flood:',
+  s1.filterDate(beforeStart, beforeEnd).size()
+);
+
+print(
+  'Sentinel-1 images during flood:',
+  s1.filterDate(eventStart, eventEnd).size()
+);
+
+// Threshold based on observed VH difference distribution.
+// p10 was around -2.37, so -2.4 captures strongest negative-change pixels.
+var floodRaw = difference.lt(-3.0);
 
 // Mask permanent water using JRC Global Surface Water
 var gsw = ee.Image('JRC/GSW1_4/GlobalSurfaceWater');
 var permanentWater = gsw.select('seasonality').gte(10);
-flood = flood.where(permanentWater, 0);
+var flood = floodRaw.where(permanentWater, 0);
 
 // Mask steep slopes using SRTM
 var dem = ee.Image('USGS/SRTMGL1_003');
@@ -67,27 +88,60 @@ var floodArea = flood
     maxPixels: 1e13
   });
 
-// Print diagnostics
-print('Sentinel-1 images before flood:', s1.filterDate(beforeStart, beforeEnd).size());
-print('Sentinel-1 images during flood:', s1.filterDate(eventStart, eventEnd).size());
-print('Flood area km2:', floodArea);
+print('Cleaned flood area km2:', floodArea);
 
-// Visualization layers
-Map.addLayer(before, {min: -25, max: 0}, 'Before flood VH');
-Map.addLayer(during, {min: -25, max: 0}, 'During flood VH');
+// Visualization
+Map.addLayer(
+  before,
+  {min: -25, max: 0},
+  'Before flood VH'
+);
+
+Map.addLayer(
+  during,
+  {min: -25, max: 0},
+  'During flood VH'
+);
+
 Map.addLayer(
   difference,
-  {min: -5, max: 5, palette: ['blue', 'white', 'red']},
+  {
+    min: -3,
+    max: 3,
+    palette: ['blue', 'white', 'red']
+  },
   'VH difference'
 );
-Map.addLayer(flood, {palette: ['0000ff']}, 'Detected flood extent');
 
-// Export flood mask to Google Drive
+Map.addLayer(
+  gsw.select('occurrence'),
+  {
+    min: 0,
+    max: 100
+  },
+  'JRC Water Occurrence',
+  false
+);
+
+Map.addLayer(
+  floodRaw.selfMask(),
+  {palette: ['cyan']},
+  'Raw flood threshold -2.4',
+  false
+);
+
+Map.addLayer(
+  flood.selfMask(),
+  {palette: ['0000ff']},
+  'Cleaned flood extent -2.4'
+);
+
+// Export cleaned flood mask
 Export.image.toDrive({
-  image: flood,
-  description: 'sentinel1_flood_mask_sindh_2019_event1_threshold_08',
+  image: flood.selfMask(),
+  description: 'sentinel1_flood_mask_sindh_2019_event1_threshold_24',
   folder: 'indus_flood_validation',
-  fileNamePrefix: 'sentinel1_flood_mask_sindh_2019_event1_threshold_08',
+  fileNamePrefix: 'sentinel1_flood_mask_sindh_2019_event1_threshold_24',
   region: sindh,
   scale: 30,
   maxPixels: 1e13
