@@ -87,7 +87,7 @@ Current features include:
 Implemented:
 - Logistic Regression
 - Random Forest
-- XGBoost (optional)
+- XGBoost
 
 ### Evaluation Metrics
 - Accuracy
