@@ -1,121 +1,210 @@
-# Indus Flood Prediction using Machine Learning
+Indus River Flood Prediction and Risk Assessment
 
-## Overview
+Overview
 
-This project develops a machine learning-based flood prediction framework for the Lower Indus River Basin in Sindh, Pakistan.
+This project develops a machine learning-based flood forecasting framework for Sindh Province, Pakistan, using hydrological, meteorological, topographic, and satellite-derived datasets. The objective is to evaluate the ability of environmental predictors to forecast high-discharge flood events across multiple forecasting horizons while maintaining temporal integrity and model explainability.
 
-The system combines hydrological, meteorological, and topographical datasets to predict flood-related discharge events and analyze flood risk patterns over time.
+The project combines:
 
-The long-term goal is to create a scalable flood forecasting pipeline capable of supporting early warning systems in regions with limited ground-based monitoring infrastructure.
+* ERA5 precipitation and atmospheric variables
+* GloFAS river discharge data
+* SRTM elevation data
+* Sentinel-1 SAR imagery for flood validation
+* Machine learning forecasting models
+* Explainable AI techniques (SHAP)
 
----
+⸻
 
-## Objectives
+Study Area
 
-- Predict flood-related discharge events
-- Build multi-horizon flood forecasting models
-- Compare rainfall-only and hydrology-informed models
-- Generate spatial flood-risk visualizations
-- Validate predictions using Sentinel-1 satellite imagery
-- Improve interpretability using explainable AI techniques
+* Region: Sindh Province, Pakistan
+* Basin: Lower Indus River Basin
+* Time Period: 2010–2023
+* Spatial Reference: EPSG:4326
 
----
+⸻
 
-## Datasets Used
+Data Sources
 
-### ERA5 Reanalysis
-Used for:
-- rainfall
-- temperature
-- runoff
-- soil moisture
+ERA5 Reanalysis
 
-Source:
-Copernicus Climate Data Store
+Source: ECMWF Copernicus Climate Data Store
 
-### GloFAS
-Used for:
-- river discharge measurements
-- hydrological forecasting variables
+Variables include:
 
-Source:
-Copernicus Emergency Management Service
+* Total precipitation
+* Accumulated rainfall metrics
+* Temporal rainfall aggregations
 
-### SRTM DEM
-Used for:
-- elevation
-- terrain analysis
-- floodplain characterization
+GloFAS
 
-Source:
-USGS / NASA
+Source: Copernicus Emergency Management Service
 
-### Administrative Boundaries
-Used for:
-- Sindh boundary clipping
-- spatial masking
+Variables include:
 
-Source:
-geoBoundaries
+* River discharge
+* Maximum discharge
+* Rolling discharge statistics
 
----
+SRTM
 
-## Current Pipeline
+Source: NASA Shuttle Radar Topography Mission
 
-### Data Acquisition
-- Multi-year ERA5 download pipeline (2015–2023)
-- Multi-year GloFAS download pipeline
-- SRTM DEM tile mosaicking
+Variables include:
 
-### Preprocessing
-- Spatial clipping to Sindh boundary
-- Temporal aggregation
-- Feature engineering
-- DEM mosaicking
-- NetCDF processing
+* Elevation
+* Terrain-derived features
 
-### Feature Engineering
-Current features include:
-- rainfall totals
-- rolling rainfall averages
-- lagged rainfall variables
-- discharge statistics
-- lagged discharge variables
-- terrain elevation metrics
+Sentinel-1 SAR
 
-### Machine Learning Models
-Implemented:
-- Logistic Regression
-- Random Forest
-- XGBoost
+Source: ESA Sentinel-1 Ground Range Detected (GRD)
 
-### Evaluation Metrics
-- Accuracy
-- Precision
-- Recall
-- F1-score
-- ROC-AUC
+Used for independent validation of detected flood events through radar backscatter change analysis.
 
----
+⸻
 
-## Current Outputs
+Feature Engineering
 
-Generated outputs include:
+More than 150 predictive features were generated from environmental datasets.
 
-- precipitation maps
-- discharge maps
-- elevation maps
-- ROC curves
-- confusion matrices
-- feature importance plots
-- temporal rainfall/discharge visualizations
+Examples include:
 
----
+Rainfall Features
 
-## Repository Structure
+* Rainfall accumulation over 1, 3, 7, 14, and 30-day windows
+* Rolling precipitation statistics
+* Lagged rainfall variables
 
-```text
-data_raw/              # downloaded datasets
-data_processed/        # cleaned and clipped datasets
-outputs/               # figures, metrics, trained models
-src/                   # preprocessing and ML scripts
+Hydrological Features
+
+* River discharge lags
+* Maximum discharge values
+* Rolling discharge averages
+* Discharge anomaly indicators
+
+Terrain Features
+
+* Elevation-derived variables
+* Topographic context
+
+⸻
+
+Forecasting Targets
+
+Flood events are defined as extreme discharge occurrences exceeding the 95th percentile of observed discharge values.
+
+Forecast horizons:
+
+* 1-day flood prediction
+* 7-day flood prediction
+* 14-day flood prediction
+
+⸻
+
+Machine Learning Models
+
+Logistic Regression
+
+Baseline probabilistic classifier using a linear decision boundary.
+
+Random Forest
+
+Ensemble learning model that aggregates predictions from multiple decision trees trained on bootstrapped samples.
+
+XGBoost
+
+Gradient-boosted decision tree model that sequentially learns residual errors from previous trees to improve predictive performance.
+
+⸻
+
+Experimental Design
+
+Temporal Train/Test Split
+
+Training Period:
+
+* 2010–2019
+
+Testing Period:
+
+* 2019–2023
+
+The split is strictly chronological to prevent temporal leakage.
+
+Dataset Comparisons
+
+Two forecasting pipelines were evaluated:
+
+1. Rainfall-only features
+2. Hydrology-enhanced features (rainfall + discharge)
+
+⸻
+
+Explainability
+
+SHAP (SHapley Additive exPlanations) was applied to trained XGBoost models to identify the environmental variables contributing most strongly to flood predictions.
+
+Key findings:
+
+* Hydrology-enhanced models were primarily driven by GloFAS discharge variables.
+* Rainfall-only models relied more heavily on accumulated precipitation features.
+* River discharge metrics consistently ranked among the most important predictors.
+
+⸻
+
+Sentinel-1 Flood Validation
+
+Independent validation was conducted using Sentinel-1 SAR imagery.
+
+Validation workflow:
+
+1. Construct pre-flood and during-flood composites.
+2. Compute VH backscatter differences.
+3. Detect significant reductions in radar backscatter associated with surface water expansion.
+4. Remove permanent water bodies using JRC Global Surface Water.
+5. Remove steep terrain using SRTM slope filtering.
+6. Apply connected-component filtering to reduce noise.
+
+Threshold sensitivity analysis:
+
+VH Threshold	Detected Flood Area
+-2.4 dB	20,872 km²
+-3.0 dB	15,943 km²
+
+The stricter -3.0 dB threshold was selected as the preferred validation mask due to reduced false positives and improved spatial coherence along the Indus floodplain.
+
+⸻
+
+Results
+
+Major findings include:
+
+* Hydrology-enhanced models consistently outperformed rainfall-only models.
+* XGBoost achieved the strongest overall performance across forecasting horizons.
+* Forecast skill decreased as prediction horizons increased.
+* River discharge information provided substantial predictive value beyond precipitation alone.
+* Sentinel-1 validation demonstrated spatial correspondence between modeled flood-risk areas and observed inundation patterns.
+
+⸻
+
+Project Structure
+
+src/
+gee/
+tests/
+data_raw/
+data_processed/
+outputs/
+validation/
+
+⸻
+
+Future Work
+
+* Flood susceptibility mapping
+* Spatial flood-risk products
+* Additional Sentinel-1 validation events
+* Hyperparameter optimization
+* Streamlit dashboard deployment
+* Integration of land-cover and soil-moisture predictors
+* Multi-basin generalization experiments
