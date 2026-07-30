@@ -281,6 +281,11 @@ These outputs should be interpreted as model-estimated flood-event probability c
 
 GeoTIFF and map PNG export is implemented for future prediction datasets that provide a complete regular latitude/longitude grid plus explicit CRS metadata. Categorical risk rasters are written as integer classes without interpolation when such inputs are available.
 
+When `--drop-invalid-rows` is used with a spatial prediction grid, raster reconstruction uses only the exact
+rows retained for inference. If dropping invalid feature rows makes a formerly complete regular grid incomplete,
+the workflow rejects raster generation with a clear grid-completeness error instead of combining probabilities
+from filtered rows with coordinates from the original unfiltered grid.
+
 ---
 
 ## Results

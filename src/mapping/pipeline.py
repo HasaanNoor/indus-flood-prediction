@@ -87,19 +87,22 @@ def run_horizon(
     config = get_horizon_config(horizon, dataset_type=dataset_type)
     output_dir = output_dir_for_horizon(horizon, output_root or config.output_dir.parent)
 
-    # Load once before inference to determine whether a validated raster path is possible.
-    from src.mapping.inference import load_prediction_dataset
-
-    df = load_prediction_dataset(config.dataset_path)
-    grid = reconstruct_regular_grid(df, crs=raster_crs) if raster_crs else reconstruct_regular_grid(df)
-    spatial_metadata = spatial_metadata_for_grid(grid)
-
     result = run_tabular_inference(
         config,
         thresholds,
-        spatial_metadata,
+        {},
         drop_invalid_rows=drop_invalid_rows,
     )
+
+    retained_rows = result.retained_rows
+    grid = (
+        reconstruct_regular_grid(retained_rows, crs=raster_crs)
+        if raster_crs
+        else reconstruct_regular_grid(retained_rows)
+    )
+    spatial_metadata = spatial_metadata_for_grid(grid)
+    result.metadata.update(spatial_metadata)
+
     output_dir.mkdir(parents=True, exist_ok=True)
     predictions_path = output_dir / "predictions.csv"
     metadata_path = output_dir / "metadata.json"
@@ -116,8 +119,12 @@ def run_horizon(
     }
 
     if grid is not None:
-        probability_grid = values_to_grid(df, result.probabilities.astype("float32"), grid)
-        risk_grid = values_to_grid(df, result.risk_classes.astype("uint8"), grid)
+        probability_grid = values_to_grid(
+            retained_rows,
+            result.probabilities.astype("float32"),
+            grid,
+        )
+        risk_grid = values_to_grid(retained_rows, result.risk_classes.astype("uint8"), grid)
         probability_path = write_geotiff(
             probability_grid,
             grid,

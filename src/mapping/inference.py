@@ -29,6 +29,7 @@ class InferenceResult:
     risk_classes: np.ndarray
     feature_columns: list[str]
     metadata: dict[str, object]
+    retained_rows: pd.DataFrame
 
 
 def load_model(model_path: Path) -> object:
@@ -133,13 +134,23 @@ def build_predictions_frame(
     risk_classes: np.ndarray,
     horizon: str,
 ) -> pd.DataFrame:
-    columns = [
-        column
-        for column in ["latitude", "lat", "longitude", "lon", "date", "time", "timestamp"]
-        if column in df.columns
-    ]
+    alias_groups = {
+        "latitude": ["latitude", "lat"],
+        "longitude": ["longitude", "lon"],
+        "timestamp": ["timestamp", "date", "time"],
+    }
+    columns = []
+    rename = {}
+    for canonical, aliases in alias_groups.items():
+        present = [column for column in aliases if column in df.columns]
+        if len(present) > 1:
+            raise ValueError(f"Ambiguous aliases for {canonical}: {present}")
+        if present:
+            source = present[0]
+            columns.append(source)
+            if source != canonical:
+                rename[source] = canonical
     output = df.loc[:, columns].copy()
-    rename = {"lat": "latitude", "lon": "longitude", "time": "timestamp", "date": "timestamp"}
     output = output.rename(columns=rename)
     output[PROBABILITY_COLUMN] = probabilities
     output[RISK_CLASS_COLUMN] = risk_classes
@@ -213,6 +224,7 @@ def run_tabular_inference(
         valid_rows = np.isfinite(feature_values).all(axis=1)
         dropped = int((~valid_rows).sum())
         df = df.loc[valid_rows].reset_index(drop=True)
+    retained_rows = df.copy()
     X = validate_prediction_features(df, features)
     probabilities = predict_positive_class(model, X)
     risk_classes = classify_probabilities(probabilities, thresholds)
@@ -225,4 +237,4 @@ def run_tabular_inference(
         spatial_metadata=spatial_metadata,
         dropped_non_finite_rows=dropped,
     )
-    return InferenceResult(predictions, probabilities, risk_classes, features, metadata)
+    return InferenceResult(predictions, probabilities, risk_classes, features, metadata, retained_rows)

@@ -9,14 +9,17 @@ import pandas as pd
 import pytest
 import rasterio
 
+from src.mapping import pipeline as mapping_pipeline
 from src.mapping.classification import classify_probabilities, validate_thresholds
 from src.mapping.configuration import (
+    HorizonConfig,
     RISK_CLASSES,
     get_horizon_config,
     model_path_for_horizon,
     output_dir_for_horizon,
 )
 from src.mapping.inference import (
+    build_predictions_frame,
     build_metadata,
     model_feature_columns,
     run_tabular_inference,
@@ -158,6 +161,38 @@ def test_nodata_preservation_in_geotiff(tmp_path: Path) -> None:
         assert src.dtypes == ("float32",)
 
 
+def test_values_to_grid_uses_full_grid_axes_for_retained_rows() -> None:
+    original = pd.DataFrame(
+        {
+            "lat": [2.0, 2.0, 1.0, 1.0],
+            "lon": [10.0, 11.0, 10.0, 11.0],
+        }
+    )
+    retained = original.drop(index=[1]).reset_index(drop=True)
+    grid = reconstruct_regular_grid(original, crs="EPSG:4326")
+    assert grid is not None
+
+    array = values_to_grid(retained, np.array([0.2, 0.6, 0.8], dtype="float32"), grid)
+
+    np.testing.assert_allclose(array, [[0.2, PROBABILITY_NODATA], [0.6, 0.8]])
+
+
+@pytest.mark.parametrize(
+    "frame",
+    [
+        pd.DataFrame({"latitude": [1.0], "lat": [1.0]}),
+        pd.DataFrame({"longitude": [10.0], "lon": [10.0]}),
+        pd.DataFrame({"date": ["2020-01-01"], "time": ["00:00"]}),
+        pd.DataFrame(
+            {"date": ["2020-01-01"], "timestamp": ["2020-01-01T00:00:00"]}
+        ),
+    ],
+)
+def test_build_predictions_frame_rejects_ambiguous_aliases(frame: pd.DataFrame) -> None:
+    with pytest.raises(ValueError, match="Ambiguous aliases"):
+        build_predictions_frame(frame, np.array([0.1]), np.array([1]), "1day")
+
+
 def test_metadata_generation_records_inputs(tmp_path: Path) -> None:
     model_path = tmp_path / "hydrology_label_discharge_next_1d_ge_q95_xgboost.pkl"
     dataset_path = tmp_path / "flood_features_hydrology.csv"
@@ -203,5 +238,76 @@ def test_deterministic_repeated_inference(tmp_path: Path) -> None:
     config = replace(get_horizon_config("1day"), model_path=model_path, dataset_path=dataset_path)
     first = run_tabular_inference(config, (0.25, 0.5, 0.75), {"crs": None})
     second = run_tabular_inference(config, (0.25, 0.5, 0.75), {"crs": None})
-    assert first.predictions.drop(columns=[]).equals(second.predictions.drop(columns=[]))
+    assert first.predictions.equals(second.predictions)
     assert np.array_equal(first.risk_classes, second.risk_classes)
+
+
+def test_drop_invalid_rows_retains_coordinate_alignment_and_rejects_incomplete_grid(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    model_path = tmp_path / "hydrology_label_discharge_next_1d_ge_q95_xgboost.pkl"
+    dataset_path = tmp_path / "flood_features_hydrology.csv"
+    with model_path.open("wb") as handle:
+        pickle.dump(DummyProbabilityModel(["a", "b"]), handle)
+
+    original = pd.DataFrame(
+        {
+            "lat": [2.0, 2.0, 1.0, 1.0],
+            "lon": [10.0, 11.0, 10.0, 11.0],
+            "a": [1.0, np.nan, 3.0, 4.0],
+            "b": [1.0, 2.0, 3.0, 4.0],
+            "label_discharge_next_1d_ge_q95": [0, 0, 1, 1],
+        }
+    )
+    original.to_csv(dataset_path, index=False)
+    config = HorizonConfig(
+        horizon="1day",
+        label_column="label_discharge_next_1d_ge_q95",
+        model_path=model_path,
+        dataset_path=dataset_path,
+        dataset_type="hydrology",
+    )
+
+    result = run_tabular_inference(
+        config,
+        (0.25, 0.5, 0.75),
+        {"crs": None},
+        drop_invalid_rows=True,
+    )
+
+    assert result.metadata["dropped_non_finite_rows"] == 1
+    assert result.retained_rows[["lat", "lon"]].to_records(index=False).tolist() == [
+        (2.0, 10.0),
+        (1.0, 10.0),
+        (1.0, 11.0),
+    ]
+    assert result.predictions[["latitude", "longitude"]].to_records(index=False).tolist() == [
+        (2.0, 10.0),
+        (1.0, 10.0),
+        (1.0, 11.0),
+    ]
+    full_grid = reconstruct_regular_grid(original, crs="EPSG:4326")
+    assert full_grid is not None
+    probability_grid = values_to_grid(
+        result.retained_rows,
+        result.probabilities.astype("float32"),
+        full_grid,
+    )
+    np.testing.assert_allclose(probability_grid, [[0.2, PROBABILITY_NODATA], [0.6, 0.8]])
+
+    monkeypatch.setattr(
+        mapping_pipeline,
+        "get_horizon_config",
+        lambda horizon, dataset_type="hydrology": config,
+    )
+    with pytest.raises(ValueError, match="complete rectangular grid"):
+        mapping_pipeline.run_horizon(
+            horizon="1day",
+            thresholds=(0.25, 0.5, 0.75),
+            output_root=tmp_path / "outputs",
+            raster_crs="EPSG:4326",
+            boundary_path=None,
+            drop_invalid_rows=True,
+            overwrite=True,
+        )

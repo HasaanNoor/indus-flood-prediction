@@ -23,6 +23,8 @@ class SpatialGrid:
     height: int
     resolution: tuple[float, float]
     nodata: float | int
+    latitude_values: tuple[float, ...] = ()
+    longitude_values: tuple[float, ...] = ()
 
 
 def detect_coordinate_columns(df: pd.DataFrame) -> tuple[str, str] | None:
@@ -76,6 +78,8 @@ def reconstruct_regular_grid(
         height=len(lats),
         resolution=(xres, yres),
         nodata=nodata,
+        latitude_values=tuple(float(value) for value in lats),
+        longitude_values=tuple(float(value) for value in lons),
     )
 
 
@@ -83,12 +87,18 @@ def values_to_grid(df: pd.DataFrame, values: np.ndarray, grid: SpatialGrid) -> n
     if len(df) != len(values):
         raise ValueError("Output values length does not match input rows.")
     result = np.full((grid.height, grid.width), grid.nodata, dtype=np.asarray(values).dtype)
-    lats = np.sort(df[grid.latitude_column].unique())[::-1]
-    lons = np.sort(df[grid.longitude_column].unique())
+    if grid.latitude_column not in df.columns or grid.longitude_column not in df.columns:
+        raise ValueError("Input rows do not contain the coordinate columns used by the raster grid.")
+    lats = grid.latitude_values or tuple(np.sort(df[grid.latitude_column].unique())[::-1])
+    lons = grid.longitude_values or tuple(np.sort(df[grid.longitude_column].unique()))
     lat_index = {value: idx for idx, value in enumerate(lats)}
     lon_index = {value: idx for idx, value in enumerate(lons)}
     for (_, row), value in zip(df.iterrows(), values):
-        result[lat_index[row[grid.latitude_column]], lon_index[row[grid.longitude_column]]] = value
+        lat = row[grid.latitude_column]
+        lon = row[grid.longitude_column]
+        if lat not in lat_index or lon not in lon_index:
+            raise ValueError("Input row coordinates are outside the raster grid.")
+        result[lat_index[lat], lon_index[lon]] = value
     return result
 
 
