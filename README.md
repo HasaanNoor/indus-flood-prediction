@@ -210,6 +210,79 @@ The stricter **-3.0 dB** threshold was selected as the preferred validation mask
 
 ---
 
+## Multi-Horizon Spatial Flood-Risk Inference
+
+The repository includes a deterministic inference workflow for the trained multi-horizon XGBoost models. The workflow loads saved model artifacts and processed feature datasets; it does not retrain models.
+
+Supported forecast horizons:
+
+- 1-day
+- 7-day
+- 14-day
+
+Default model and dataset family:
+
+- Hydrology-enhanced XGBoost models
+- `data_processed/features/flood_features_hydrology.csv`
+- `outputs/models/hydrology_label_discharge_next_{1d,7d,14d}_ge_q95_xgboost.pkl`
+
+Run all horizons:
+
+```bash
+python3 -m src.mapping.pipeline --all-horizons
+```
+
+Run one horizon:
+
+```bash
+python3 -m src.mapping.pipeline --horizon 7day
+```
+
+The default risk thresholds are `0.25`, `0.50`, and `0.75`. They can be overridden with three strictly increasing values in `[0, 1]`:
+
+```bash
+python3 -m src.mapping.pipeline --all-horizons --thresholds 0.2 0.5 0.8
+```
+
+The current processed prediction CSVs are daily aggregate feature tables and do not contain latitude/longitude coordinates, CRS, affine transform, or a complete raster grid. Because of that, the workflow currently produces scientifically valid tabular probability outputs and metadata, and it deliberately skips GeoTIFF and map PNG products rather than fabricating spatial rasters. If early rolling-window rows contain non-finite features, a smoke run on the valid subset can be performed explicitly:
+
+```bash
+python3 -m src.mapping.pipeline --all-horizons --drop-invalid-rows
+```
+
+Expected output structure for the current aggregate datasets:
+
+```text
+outputs/
+  flood_risk_maps/
+    1day/
+      predictions.csv
+      metadata.json
+    7day/
+      predictions.csv
+      metadata.json
+    14day/
+      predictions.csv
+      metadata.json
+```
+
+`predictions.csv` contains the model-estimated flood-event probability, numeric risk class, risk label, forecast horizon, and timestamp where available. Risk classes are probability-derived categories only:
+
+| Class | Label |
+|------:|-------|
+| 1 | Low |
+| 2 | Moderate |
+| 3 | High |
+| 4 | Very High |
+
+Boundary behavior is deterministic: `Low` is below the first threshold, `Moderate` starts at the first threshold, `High` starts at the second threshold, and `Very High` starts at the third threshold.
+
+These outputs should be interpreted as model-estimated flood-event probability categories under the project target definition. They are not calibrated hazard, exposure, vulnerability, or comprehensive disaster-risk products. Sentinel-1 SAR validation remains an independent observed flood-extent reference and is not used as a model input in this workflow.
+
+GeoTIFF and map PNG export is implemented for future prediction datasets that provide a complete regular latitude/longitude grid plus explicit CRS metadata. Categorical risk rasters are written as integer classes without interpolation when such inputs are available.
+
+---
+
 ## Results
 
 Major findings include:

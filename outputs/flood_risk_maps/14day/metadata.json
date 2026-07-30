@@ -1,0 +1,34 @@
+{
+  "forecast_horizon": "14day",
+  "dataset_type": "hydrology",
+  "model_name": "xgboost",
+  "model_artifact": "/Users/hasaannoor/Desktop/flood_prediction_Indus/outputs/models/hydrology_label_discharge_next_14d_ge_q95_xgboost.pkl",
+  "input_dataset": "/Users/hasaannoor/Desktop/flood_prediction_Indus/data_processed/features/flood_features_hydrology.csv",
+  "model_sha256": "95b72816432fe673fd4f35743f87e72160d194a3269aa2ffa8221098ab6bd583",
+  "input_dataset_sha256": "29a73db2d2dced9c5a05e27562f3b10230103aba3f511bb12fe4c11fa6dd77ad",
+  "risk_thresholds": [
+    0.25,
+    0.5,
+    0.75
+  ],
+  "risk_class_boundary_behavior": "Low: p < t1; Moderate: t1 <= p < t2; High: t2 <= p < t3; Very High: p >= t3",
+  "feature_count": 153,
+  "prediction_row_count": 4690,
+  "dropped_non_finite_rows": 379,
+  "generation_timestamp": "2026-07-30T17:44:14.702986+00:00",
+  "spatial_output_status": "skipped",
+  "spatial_output_reason": "Input prediction dataset has no complete latitude/longitude raster grid metadata. Existing processed CSVs are temporal aggregate feature tables.",
+  "crs": null,
+  "affine_transform": null,
+  "raster_dimensions": null,
+  "resolution": null,
+  "nodata_value": null,
+  "generated_outputs": {
+    "predictions_csv": "/Users/hasaannoor/Desktop/flood_prediction_Indus/outputs/flood_risk_maps/14day/predictions.csv",
+    "metadata_json": "/Users/hasaannoor/Desktop/flood_prediction_Indus/outputs/flood_risk_maps/14day/metadata.json",
+    "probability_geotiff": null,
+    "risk_geotiff": null,
+    "probability_png": null,
+    "risk_png": null
+  }
+}
