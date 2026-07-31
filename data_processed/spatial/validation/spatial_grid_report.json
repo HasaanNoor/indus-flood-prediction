@@ -1,0 +1,49 @@
+{
+  "status": "passed",
+  "issues": [],
+  "grid": {
+    "crs": "EPSG:4326",
+    "width": 33,
+    "height": 37,
+    "sindh_cells": 240,
+    "transform": [
+      0.25,
+      0.0,
+      64.875,
+      0.0,
+      -0.25,
+      31.125
+    ],
+    "bounds": [
+      64.875,
+      21.875,
+      73.125,
+      31.125
+    ]
+  },
+  "feature_rows": 3600,
+  "feature_dates": 15,
+  "label_rows": 480,
+  "nodata_rates_top20": {
+    "terrain_slope_degrees": 0.4,
+    "glofas_river_discharge_m3s_on_river_cell": 0.19583333333333333,
+    "terrain_elevation_m": 0.16666666666666666,
+    "relative_elevation_within_sindh_m": 0.16666666666666666,
+    "era5_swvl2_mean_3d": 0.0,
+    "era5_u10_current": 0.0,
+    "era5_sp_mean_7d": 0.0,
+    "era5_sp_mean_3d": 0.0,
+    "era5_sp_lag_7d": 0.0,
+    "era5_sp_lag_3d": 0.0,
+    "era5_sp_lag_1d": 0.0,
+    "era5_sp_current": 0.0,
+    "era5_swvl2_mean_7d": 0.0,
+    "row": 0.0,
+    "era5_swvl2_lag_7d": 0.0,
+    "era5_u10_lag_3d": 0.0,
+    "era5_swvl2_lag_3d": 0.0,
+    "era5_swvl2_lag_1d": 0.0,
+    "era5_swvl2_current": 0.0,
+    "era5_swvl1_mean_7d": 0.0
+  }
+}

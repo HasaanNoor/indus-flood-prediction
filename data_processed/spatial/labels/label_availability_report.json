@@ -1,0 +1,22 @@
+{
+  "raster_count": 2,
+  "unique_event_count": 1,
+  "events": [
+    {
+      "event_id": "2019_event1_threshold_24",
+      "path": "/Users/hasaannoor/Desktop/flood_prediction_Indus/outputs/validation/sentinel1/sentinel1_flood_mask_sindh_2019_event1_threshold_24.tif",
+      "threshold_db": -2.4
+    },
+    {
+      "event_id": "2019_event1_threshold_24_versioned",
+      "path": "/Users/hasaannoor/Desktop/flood_prediction_Indus/outputs/validation/sentinel1/sentinel1_flood_mask_sindh_2019_event1_threshold_24_Version3.0.tif",
+      "threshold_db": -2.4
+    }
+  ],
+  "training_readiness": "insufficient_for_robust_spatial_model_training",
+  "limitations": [
+    "Sentinel-1 masks are observed inundation candidates, not perfect ground truth.",
+    "Permanent water must remain separate when available and should not be treated as flood.",
+    "A single event cannot support a general spatial flood-event classifier."
+  ]
+}

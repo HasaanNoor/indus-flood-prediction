@@ -1,0 +1,36 @@
+{
+  "unit_of_analysis": "one row is one canonical grid cell on one daily date",
+  "canonical_grid_source": "ERA5 processed daily regular latitude/longitude grid",
+  "crs": "EPSG:4326",
+  "affine_transform": [
+    0.25,
+    0.0,
+    64.875,
+    0.0,
+    -0.25,
+    31.125
+  ],
+  "width": 33,
+  "height": 37,
+  "resolution_degrees": [
+    0.25,
+    0.25
+  ],
+  "bounds": {
+    "left": 64.875,
+    "bottom": 21.875,
+    "right": 73.125,
+    "top": 31.125
+  },
+  "grid_origin": "upper-left outer corner derived from ERA5 cell centers",
+  "cell_dimensions": {
+    "x_degrees": 0.25,
+    "y_degrees": 0.25
+  },
+  "temporal_frequency": "daily",
+  "nodata_policy": "NaN in tabular features; -9999 only for raster-compatible numeric reports",
+  "cell_ordering": "row-major, north-to-south then west-to-east",
+  "total_cells": 1221,
+  "sindh_cells": 240,
+  "grid_cell_id_pattern": "sindh_era5_r{row:03d}_c{col:03d}"
+}

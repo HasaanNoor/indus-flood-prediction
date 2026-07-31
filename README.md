@@ -288,6 +288,67 @@ from filtered rows with coordinates from the original unfiltered grid.
 
 ---
 
+## Spatial Feature Grid Generation
+
+Phase 12 adds a deterministic spatial data foundation for future spatial flood-event classification. It does not train a spatial model and it does not use the existing province-level temporal models for grid-cell inference.
+
+Unit of analysis:
+
+- One row = one canonical grid cell on one daily date
+- Canonical grid = processed ERA5 WGS84 0.25 degree grid
+- Cell ordering = row-major, north-to-south then west-to-east
+- Mask = Sindh boundary rasterized to the canonical grid
+- Stable ID = `grid_cell_id`
+
+The ERA5 grid is used because it is the coarsest spatially varying dynamic predictor already present in the repository. GloFAS discharge is handled as a river-aware feature using nearest valid river-cell discharge, distance to nearest GloFAS river cell, and an explicit river-cell indicator. It is not interpolated across all land cells as though every cell were a river.
+
+Spatial feature outputs:
+
+```text
+data_processed/
+  spatial/
+    grid_metadata.json
+    grid_cells.csv
+    features/
+      spatial_features_<date_or_partition>.parquet
+    labels/
+      sentinel1_labels_<event_id>.parquet
+      label_availability_report.json
+    validation/
+      spatial_grid_report.json
+      spatial_grid_report.md
+```
+
+Run only the canonical grid build:
+
+```bash
+python3 -m src.spatial.pipeline --build-grid
+```
+
+Run a small real-data pilot with Sentinel-1 label alignment:
+
+```bash
+python3 -m src.spatial.pipeline \
+  --start-date 2019-08-01 \
+  --end-date 2019-08-15 \
+  --include-labels
+```
+
+Run a partitioned full-period build:
+
+```bash
+python3 -m src.spatial.pipeline \
+  --start-year 2010 \
+  --end-year 2023 \
+  --partition-by-year
+```
+
+The default run intentionally uses a small pilot range. Full 2010-2023 generation should be year-partitioned to avoid unnecessary memory and disk pressure. Sentinel-1 labels are candidate observed inundation labels, not perfect ground truth; permanent water and model-estimated probability are preserved as separate concepts.
+
+See `docs/research/spatial-feature-grid.md` for the canonical-grid decision, resampling rules, label limitations, and scientific guardrails.
+
+---
+
 ## Results
 
 Major findings include:

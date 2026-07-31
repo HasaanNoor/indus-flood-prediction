@@ -4,6 +4,7 @@ netcdf4
 rasterio
 rioxarray
 geopandas
+pyarrow
 earthengine-api
 requests
 tqdm
