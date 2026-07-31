@@ -31,6 +31,7 @@ The project combines:
 - XGBoost
 - SHAP explainability
 - Sentinel-1 SAR validation
+- Spatial flood classification model training
 
 ### In Progress
 
@@ -48,6 +49,7 @@ The project combines:
 - SHAP analysis identified GloFAS discharge variables as the most influential predictors.
 - Sentinel-1 SAR validation detected flood extents ranging from 15,943 km² to 20,872 km² depending on threshold selection.
 - River discharge variables provided substantial predictive value beyond precipitation-only inputs.
+- Phase 13 spatial models are now trained as cell-level classifiers on the de-duplicated 2019 Sentinel-1 event, but the current label inventory is too small for cross-event generalization claims.
 
 ---
 
@@ -265,6 +267,57 @@ outputs/
       predictions.csv
       metadata.json
 ```
+
+## Spatial Flood Classification Models
+
+Phase 13 adds separate spatial flood classifiers where one row is one canonical grid cell on one date. These models are trained from the Phase 12 spatial feature grid and Sentinel-1 candidate inundation labels; they do not reuse the province-level temporal forecasting models.
+
+Current supervised labels cover one de-duplicated Sentinel-1 event window, 2019-08-01 through 2019-08-15. Because there is only one independent event, the training workflow uses a deterministic spatial block holdout instead of a random pixel split, temporal split, or event-based split. This prevents identical grid cells from appearing in both train and test, but it remains a same-event pilot evaluation.
+
+Train the spatial models:
+
+```bash
+python3 -m src.spatial.model_training
+```
+
+Generated artifacts:
+
+```text
+outputs/
+  spatial_models/
+    logistic_regression.pkl
+    random_forest.pkl
+    xgboost.pkl
+  metrics/
+    spatial_model_metrics.csv
+    spatial_model_metrics.json
+    spatial_training_summary.json
+    spatial_shap_feature_importance.csv
+  figures/
+    spatial_confusion_matrix.png
+    spatial_roc_curve.png
+    spatial_pr_curve.png
+    spatial_shap_summary.png
+    spatial_shap_bar.png
+```
+
+Spatial models can be loaded by the mapping pipeline without retraining:
+
+```bash
+python3 -m src.mapping.pipeline --all-horizons --model-architecture spatial --spatial-model-name xgboost --raster-crs EPSG:4326
+```
+
+For the default multi-date spatial feature parquet, the pipeline writes tabular probabilities and skips GeoTIFF export because coordinate pairs repeat across dates. Supplying a single-date spatial feature grid allows raster reconstruction.
+
+Evaluation reports precision, recall, F1, ROC-AUC, PR-AUC, and confusion matrices. Accuracy alone is not used as a primary metric because flooded cells are rare.
+
+Limitations:
+
+- One Sentinel-1 event is not enough to claim general spatial generalization.
+- Sentinel-1 threshold masks are candidate observed inundation labels, not perfect ground truth.
+- Permanent water labels are not available as a separate raster in the current repository.
+- SHAP results explain model associations, not causality.
+- Spatial autocorrelation may remain across block boundaries.
 
 `predictions.csv` contains the model-estimated flood-event probability, numeric risk class, risk label, forecast horizon, and timestamp where available. Risk classes are probability-derived categories only:
 

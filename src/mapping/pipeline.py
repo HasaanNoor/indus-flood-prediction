@@ -7,9 +7,13 @@ from pathlib import Path
 from src.mapping.classification import validate_thresholds
 from src.mapping.configuration import (
     DEFAULT_DATASET_TYPE,
+    DEFAULT_SPATIAL_FEATURE_PATH,
+    DEFAULT_SPATIAL_MODEL_NAME,
     DEFAULT_THRESHOLDS,
     SUPPORTED_HORIZONS,
+    SUPPORTED_MODEL_ARCHITECTURES,
     get_horizon_config,
+    get_spatial_config,
     output_dir_for_horizon,
 )
 from src.mapping.inference import atomic_write_csv, atomic_write_json, run_tabular_inference
@@ -83,24 +87,51 @@ def run_horizon(
     boundary_path: Path | None = DEFAULT_BOUNDARY_PATH,
     drop_invalid_rows: bool = False,
     overwrite: bool = False,
+    model_architecture: str = "temporal",
+    spatial_model_name: str = DEFAULT_SPATIAL_MODEL_NAME,
+    spatial_dataset_path: Path = DEFAULT_SPATIAL_FEATURE_PATH,
 ) -> dict[str, object]:
-    config = get_horizon_config(horizon, dataset_type=dataset_type)
-    output_dir = output_dir_for_horizon(horizon, output_root or config.output_dir.parent)
+    if model_architecture not in SUPPORTED_MODEL_ARCHITECTURES:
+        raise ValueError(f"Unsupported model architecture: {model_architecture}")
+    config = (
+        get_spatial_config(spatial_model_name, spatial_dataset_path)
+        if model_architecture == "spatial"
+        else get_horizon_config(horizon, dataset_type=dataset_type)
+    )
+    output_dir = (
+        (output_root or config.output_dir.parent) / "spatial_event" / spatial_model_name
+        if model_architecture == "spatial"
+        else output_dir_for_horizon(horizon, output_root or config.output_dir.parent)
+    )
 
     result = run_tabular_inference(
         config,
         thresholds,
         {},
         drop_invalid_rows=drop_invalid_rows,
+        allow_non_finite_features=model_architecture == "spatial",
     )
 
     retained_rows = result.retained_rows
-    grid = (
-        reconstruct_regular_grid(retained_rows, crs=raster_crs)
-        if raster_crs
-        else reconstruct_regular_grid(retained_rows)
+    has_multiple_spatial_dates = (
+        model_architecture == "spatial"
+        and "date" in retained_rows.columns
+        and retained_rows["date"].nunique() > 1
     )
-    spatial_metadata = spatial_metadata_for_grid(grid)
+    if has_multiple_spatial_dates:
+        grid = None
+        spatial_metadata = spatial_metadata_for_grid(None)
+        spatial_metadata["spatial_output_reason"] = (
+            "Spatial feature-grid contains multiple dates, so coordinate pairs repeat. "
+            "Tabular predictions are written; provide a single-date spatial parquet for GeoTIFF export."
+        )
+    else:
+        grid = (
+            reconstruct_regular_grid(retained_rows, crs=raster_crs)
+            if raster_crs
+            else reconstruct_regular_grid(retained_rows)
+        )
+        spatial_metadata = spatial_metadata_for_grid(grid)
     result.metadata.update(spatial_metadata)
 
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -165,6 +196,9 @@ def run_pipeline(
     raster_crs: str | None = None,
     drop_invalid_rows: bool = False,
     overwrite: bool = False,
+    model_architecture: str = "temporal",
+    spatial_model_name: str = DEFAULT_SPATIAL_MODEL_NAME,
+    spatial_dataset_path: Path = DEFAULT_SPATIAL_FEATURE_PATH,
 ) -> list[dict[str, object]]:
     return [
         run_horizon(
@@ -175,6 +209,9 @@ def run_pipeline(
             raster_crs=raster_crs,
             drop_invalid_rows=drop_invalid_rows,
             overwrite=overwrite,
+            model_architecture=model_architecture,
+            spatial_model_name=spatial_model_name,
+            spatial_dataset_path=spatial_dataset_path,
         )
         for horizon in horizons
     ]
@@ -200,6 +237,24 @@ def build_parser() -> argparse.ArgumentParser:
         default=DEFAULT_DATASET_TYPE,
         help="Model/dataset family to use. Defaults to hydrology XGBoost.",
     )
+    parser.add_argument(
+        "--model-architecture",
+        choices=SUPPORTED_MODEL_ARCHITECTURES,
+        default="temporal",
+        help="Use existing temporal horizon models or Phase 13 spatial cell-level models.",
+    )
+    parser.add_argument(
+        "--spatial-model-name",
+        choices=("logistic_regression", "random_forest", "xgboost"),
+        default=DEFAULT_SPATIAL_MODEL_NAME,
+        help="Spatial model artifact to load when --model-architecture spatial is selected.",
+    )
+    parser.add_argument(
+        "--spatial-dataset-path",
+        type=Path,
+        default=DEFAULT_SPATIAL_FEATURE_PATH,
+        help="Spatial feature-grid parquet used when --model-architecture spatial is selected.",
+    )
     parser.add_argument("--output-root", type=Path, help="Override output/flood_risk_maps root.")
     parser.add_argument(
         "--raster-crs",
@@ -224,8 +279,11 @@ def main() -> None:
     try:
         thresholds = _parse_thresholds(args.thresholds)
         horizons = list(SUPPORTED_HORIZONS) if args.all_horizons else [args.horizon]
+        if args.model_architecture == "spatial":
+            horizons = ["spatial_event"]
 
         print("Running spatial flood-risk inference without model retraining.")
+        print(f"Model architecture: {args.model_architecture}")
         print(f"Dataset type: {args.dataset_type}")
         print(f"Horizons: {', '.join(horizons)}")
         print(f"Risk thresholds: {thresholds}")
@@ -237,6 +295,9 @@ def main() -> None:
             raster_crs=args.raster_crs,
             drop_invalid_rows=args.drop_invalid_rows,
             overwrite=args.overwrite,
+            model_architecture=args.model_architecture,
+            spatial_model_name=args.spatial_model_name,
+            spatial_dataset_path=args.spatial_dataset_path,
         )
     except (FileExistsError, FileNotFoundError, ValueError) as exc:
         parser.exit(2, f"Error: {exc}\n")

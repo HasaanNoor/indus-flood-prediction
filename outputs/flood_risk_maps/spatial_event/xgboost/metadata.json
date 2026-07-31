@@ -1,0 +1,35 @@
+{
+  "forecast_horizon": "spatial_event",
+  "dataset_type": "spatial",
+  "model_name": "xgboost",
+  "model_architecture": "spatial",
+  "model_artifact": "/Users/hasaannoor/Desktop/flood_prediction_Indus/outputs/spatial_models/xgboost.pkl",
+  "input_dataset": "/Users/hasaannoor/Desktop/flood_prediction_Indus/data_processed/spatial/features/spatial_features_2019-08-01_2019-08-15.parquet",
+  "model_sha256": "7311e33a45a49774851b2911ea359bf3cd86a36f2623660b4642bdead27cbb60",
+  "input_dataset_sha256": "39b1886fbe7f786a83cf7f6e8dd67e62a6f68091cc701c8657ba2583a3725bf1",
+  "risk_thresholds": [
+    0.25,
+    0.5,
+    0.75
+  ],
+  "risk_class_boundary_behavior": "Low: p < t1; Moderate: t1 <= p < t2; High: t2 <= p < t3; Very High: p >= t3",
+  "feature_count": 78,
+  "prediction_row_count": 3600,
+  "dropped_non_finite_rows": 0,
+  "generation_timestamp": "2026-07-31T22:10:01.387265+00:00",
+  "spatial_output_status": "skipped",
+  "spatial_output_reason": "Spatial feature-grid contains multiple dates, so coordinate pairs repeat. Tabular predictions are written; provide a single-date spatial parquet for GeoTIFF export.",
+  "crs": null,
+  "affine_transform": null,
+  "raster_dimensions": null,
+  "resolution": null,
+  "nodata_value": null,
+  "generated_outputs": {
+    "predictions_csv": "/Users/hasaannoor/Desktop/flood_prediction_Indus/outputs/flood_risk_maps/spatial_event/xgboost/predictions.csv",
+    "metadata_json": "/Users/hasaannoor/Desktop/flood_prediction_Indus/outputs/flood_risk_maps/spatial_event/xgboost/metadata.json",
+    "probability_geotiff": null,
+    "risk_geotiff": null,
+    "probability_png": null,
+    "risk_png": null
+  }
+}

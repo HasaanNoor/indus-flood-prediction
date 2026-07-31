@@ -15,7 +15,20 @@ from src.mapping.classification import classify_probabilities, labels_for_classe
 from src.mapping.configuration import HorizonConfig
 
 
-METADATA_COLUMNS = {"date", "time", "timestamp", "lat", "latitude", "lon", "longitude", "x", "y"}
+METADATA_COLUMNS = {
+    "date",
+    "time",
+    "timestamp",
+    "lat",
+    "latitude",
+    "lon",
+    "longitude",
+    "x",
+    "y",
+    "row",
+    "col",
+    "grid_cell_id",
+}
 PROBABILITY_COLUMN = "flood_probability"
 RISK_CLASS_COLUMN = "risk_class"
 RISK_LABEL_COLUMN = "risk_label"
@@ -42,7 +55,12 @@ def load_model(model_path: Path) -> object:
 def load_prediction_dataset(dataset_path: Path) -> pd.DataFrame:
     if not dataset_path.exists():
         raise FileNotFoundError(f"Prediction dataset not found: {dataset_path}")
-    df = pd.read_csv(dataset_path, parse_dates=["date"] if _has_date_column(dataset_path) else None)
+    if dataset_path.suffix == ".parquet":
+        df = pd.read_parquet(dataset_path)
+        if "date" in df.columns:
+            df["date"] = pd.to_datetime(df["date"])
+    else:
+        df = pd.read_csv(dataset_path, parse_dates=["date"] if _has_date_column(dataset_path) else None)
     if df.columns.duplicated().any():
         duplicated = df.columns[df.columns.duplicated()].tolist()
         raise ValueError(f"Dataset contains duplicated columns: {duplicated}")
@@ -50,6 +68,8 @@ def load_prediction_dataset(dataset_path: Path) -> pd.DataFrame:
 
 
 def _has_date_column(dataset_path: Path) -> bool:
+    if dataset_path.suffix == ".parquet":
+        return "date" in pd.read_parquet(dataset_path, columns=[]).columns
     header = pd.read_csv(dataset_path, nrows=0)
     return "date" in header.columns
 
@@ -67,6 +87,12 @@ def model_feature_columns(model: object) -> list[str]:
 
 
 def validate_horizon_binding(config: HorizonConfig) -> None:
+    if getattr(config, "model_architecture", "temporal") == "spatial":
+        if config.model_name not in config.model_path.name:
+            raise ValueError(f"Spatial model artifact {config.model_path.name} does not match {config.model_name}.")
+        if config.dataset_path.suffix != ".parquet":
+            raise ValueError("Spatial model inference expects a spatial feature-grid parquet dataset.")
+        return
     expected = config.label_column
     model_name = config.model_path.name
     dataset_name = config.dataset_path.name
@@ -80,7 +106,11 @@ def validate_horizon_binding(config: HorizonConfig) -> None:
         raise ValueError(f"Dataset {dataset_name} does not match rainfall-only mapping.")
 
 
-def validate_prediction_features(df: pd.DataFrame, required_features: list[str]) -> pd.DataFrame:
+def validate_prediction_features(
+    df: pd.DataFrame,
+    required_features: list[str],
+    allow_non_finite_features: bool = False,
+) -> pd.DataFrame:
     if df.columns.duplicated().any():
         duplicated = df.columns[df.columns.duplicated()].tolist()
         raise ValueError(f"Dataset contains duplicated columns: {duplicated}")
@@ -95,6 +125,7 @@ def validate_prediction_features(df: pd.DataFrame, required_features: list[str])
         if column in METADATA_COLUMNS
         or column.startswith("label_")
         or column.startswith("target_")
+        or column in {"observed_inundation_label", "sentinel1_threshold_db"}
     }
     numeric_columns = set(df.select_dtypes(include="number").columns)
     unexpected = sorted(numeric_columns.difference(required_features).difference(allowed_non_features))
@@ -105,7 +136,7 @@ def validate_prediction_features(df: pd.DataFrame, required_features: list[str])
     non_numeric = [column for column in X.columns if not pd.api.types.is_numeric_dtype(X[column])]
     if non_numeric:
         raise ValueError(f"Model features must be numeric: {non_numeric}")
-    if not np.isfinite(X.to_numpy(dtype="float64")).all():
+    if not allow_non_finite_features and not np.isfinite(X.to_numpy(dtype="float64")).all():
         raise ValueError("Prediction features contain missing or non-finite values.")
     return X
 
@@ -171,6 +202,7 @@ def build_metadata(
         "forecast_horizon": config.horizon,
         "dataset_type": config.dataset_type,
         "model_name": config.model_name,
+        "model_architecture": getattr(config, "model_architecture", "temporal"),
         "model_artifact": str(config.model_path),
         "input_dataset": str(config.dataset_path),
         "model_sha256": checksum(config.model_path),
@@ -210,11 +242,14 @@ def run_tabular_inference(
     thresholds: tuple[float, float, float],
     spatial_metadata: dict[str, object],
     drop_invalid_rows: bool = False,
+    allow_non_finite_features: bool | None = None,
 ) -> InferenceResult:
     validate_horizon_binding(config)
     model = load_model(config.model_path)
     df = load_prediction_dataset(config.dataset_path)
     features = model_feature_columns(model)
+    if allow_non_finite_features is None:
+        allow_non_finite_features = getattr(config, "model_architecture", "temporal") == "spatial"
     dropped = 0
     if drop_invalid_rows:
         missing = [column for column in features if column not in df.columns]
@@ -225,7 +260,7 @@ def run_tabular_inference(
         dropped = int((~valid_rows).sum())
         df = df.loc[valid_rows].reset_index(drop=True)
     retained_rows = df.copy()
-    X = validate_prediction_features(df, features)
+    X = validate_prediction_features(df, features, allow_non_finite_features=allow_non_finite_features)
     probabilities = predict_positive_class(model, X)
     risk_classes = classify_probabilities(probabilities, thresholds)
     predictions = build_predictions_frame(df, probabilities, risk_classes, config.horizon)

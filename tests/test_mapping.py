@@ -93,6 +93,22 @@ def test_rejects_unexpected_numeric_features() -> None:
         validate_prediction_features(df, ["a"])
 
 
+def test_spatial_metadata_columns_are_not_prediction_features() -> None:
+    df = pd.DataFrame(
+        {
+            "grid_cell_id": ["cell"],
+            "date": ["2020-01-01"],
+            "row": [1],
+            "col": [2],
+            "latitude": [25.0],
+            "longitude": [68.0],
+            "a": [1.0],
+        }
+    )
+    X = validate_prediction_features(df, ["a"])
+    assert list(X.columns) == ["a"]
+
+
 def test_stable_feature_ordering() -> None:
     model = DummyProbabilityModel(["b", "a"])
     df = pd.DataFrame({"a": [1.0], "b": [2.0]})
@@ -115,6 +131,19 @@ def test_horizon_binding_rejects_mismatched_model() -> None:
     config = replace(get_horizon_config("1day"), model_path=Path("hydrology_label_discharge_next_7d_ge_q95_xgboost.pkl"))
     with pytest.raises(ValueError, match="does not match horizon"):
         validate_horizon_binding(config)
+
+
+def test_spatial_model_binding_allows_phase13_artifacts(tmp_path: Path) -> None:
+    config = HorizonConfig(
+        horizon="spatial_event",
+        label_column="observed_inundation_label",
+        model_path=tmp_path / "xgboost.pkl",
+        dataset_path=tmp_path / "spatial_features.parquet",
+        dataset_type="spatial",
+        model_name="xgboost",
+        model_architecture="spatial",
+    )
+    validate_horizon_binding(config)
 
 
 def test_regular_grid_validation_and_output_naming(tmp_path: Path) -> None:
