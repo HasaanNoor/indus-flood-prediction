@@ -1,0 +1,100 @@
+{
+  "event": {
+    "event_id": "2019_sindh_monsoon_event_01",
+    "event_name": "2019 Sindh monsoon flood validation event",
+    "event_year": 2019,
+    "event_start_date": "2019-08-01",
+    "event_end_date": "2019-08-15",
+    "representative_date": "2019-08-15",
+    "baseline_start_date": "2019-06-15",
+    "baseline_end_date": "2019-06-30",
+    "data_source": "Existing repository Sentinel-1 GEE export",
+    "sentinel1_collection": "COPERNICUS/S1_GRD",
+    "polarization": "VH",
+    "orbit_pass": "DESCENDING",
+    "orbit_strategy": "same_pass_pre_and_during_required",
+    "threshold_method": "event_specific_fixed_threshold_with_percentile_sensitivity",
+    "selected_threshold": -3.0,
+    "threshold_alternatives_tested": [
+      -2.4,
+      -3.0
+    ],
+    "threshold_sensitivity": [
+      {
+        "threshold": -2.4,
+        "flood_area_estimate_km2": 20872,
+        "notes": "Higher recall candidate from prior repository sensitivity notes."
+      },
+      {
+        "threshold": -3.0,
+        "flood_area_estimate_km2": 15943,
+        "notes": "Preferred stricter threshold from prior repository sensitivity notes."
+      }
+    ],
+    "vh_difference_percentiles": {
+      "p10_approx": -2.37
+    },
+    "flood_area_estimate_km2": 15943,
+    "permanent_water_mask_source": "JRC/GSW1_4/GlobalSurfaceWater seasonality >= 10 months in original pilot script; occurrence >= 90 recommended for future exports",
+    "permanent_water_occurrence_threshold": 90,
+    "slope_threshold_degrees": 5,
+    "connected_pixel_threshold": 8,
+    "source_mask_path": "outputs/validation/sentinel1/sentinel1_flood_mask_sindh_2019_event1_threshold_24.tif",
+    "permanent_water_mask_path": null,
+    "sentinel1_available": true,
+    "mask_available": true,
+    "validation_status": "candidate_export_available",
+    "independent_event": true,
+    "parent_event_id": null,
+    "notes": "Local exported mask filename says threshold_24 but the current GEE script applies -3.0. Inventory records the stricter selected threshold and keeps -2.4 as an alternative sensitivity value.",
+    "source_references": [
+      "gee/sentinel1_flood_validation_sindh.js",
+      "README Sentinel-1 threshold sensitivity table"
+    ]
+  },
+  "ingestion": {
+    "event_id": "2019_sindh_monsoon_event_01",
+    "status": "processed",
+    "source_mask_path": "/Users/hasaannoor/Desktop/flood_prediction_Indus/outputs/validation/sentinel1/sentinel1_flood_mask_sindh_2019_event1_threshold_24.tif",
+    "source_mask_sha256": "eb9863d1f290e9c692d996accbe184caea32260d9e2c20deca6d57cc50a6765f",
+    "label_array_sha256": "db083e4440b22f8a1b128f48663cf62e1f123ce146a9a67acb7d4042b2043ddb",
+    "raster_profile": {
+      "path": "/Users/hasaannoor/Desktop/flood_prediction_Indus/outputs/validation/sentinel1/sentinel1_flood_mask_sindh_2019_event1_threshold_24.tif",
+      "crs": "EPSG:4326",
+      "width": 17441,
+      "height": 19000,
+      "count": 1,
+      "dtype": "uint8",
+      "nodata": null,
+      "bounds": [
+        66.49994486362947,
+        23.499927832566684,
+        71.20019992472804,
+        28.62032495204796
+      ],
+      "transform": [
+        0.00026949458523585647,
+        0.0,
+        66.49994486362947,
+        0.0,
+        -0.00026949458523585647,
+        28.62032495204796
+      ]
+    },
+    "permanent_water_mode": "not_supplied",
+    "rows": 240,
+    "valid_rows": 240,
+    "flood_cells": 17,
+    "non_flood_cells": 223,
+    "permanent_water_cells": 0,
+    "nodata_cells": 0,
+    "threshold": -3.0,
+    "threshold_method": "event_specific_fixed_threshold_with_percentile_sensitivity",
+    "threshold_alternatives_tested": [
+      -2.4,
+      -3.0
+    ],
+    "independent_event": true,
+    "parent_event_id": null
+  }
+}

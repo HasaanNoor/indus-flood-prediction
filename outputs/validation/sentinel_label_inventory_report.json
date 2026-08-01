@@ -1,0 +1,147 @@
+{
+  "status": "partial",
+  "issues": [],
+  "inventory_event_count": 6,
+  "independent_event_count": 6,
+  "sentinel1_available_independent_event_count": 4,
+  "processable_mask_event_count": 1,
+  "processed_event_count": 1,
+  "unavailable_or_pending_events": [
+    {
+      "event_id": "2010_indus_superflood_unavailable_s1",
+      "validation_status": "unavailable",
+      "sentinel1_available": false,
+      "mask_available": false,
+      "notes": "Sentinel-1A was launched in 2014; no Sentinel-1 GRD label can be generated for this event."
+    },
+    {
+      "event_id": "2011_sindh_monsoon_unavailable_s1",
+      "validation_status": "unavailable",
+      "sentinel1_available": false,
+      "mask_available": false,
+      "notes": "Retained for historical completeness but excluded from Sentinel-1 label counts."
+    },
+    {
+      "event_id": "2015_sindh_monsoon_candidate",
+      "validation_status": "pending_gee_export",
+      "sentinel1_available": true,
+      "mask_available": false,
+      "notes": "Post-launch candidate. Must be confirmed in GEE because early Sentinel-1 coverage was less dense than later years."
+    },
+    {
+      "event_id": "2020_sindh_monsoon_candidate",
+      "validation_status": "pending_gee_export",
+      "sentinel1_available": true,
+      "mask_available": false,
+      "notes": "Candidate independent event. The inventory intentionally does not fabricate labels before a mask export exists."
+    },
+    {
+      "event_id": "2022_pakistan_sindh_event_01",
+      "validation_status": "pending_gee_export",
+      "sentinel1_available": true,
+      "mask_available": false,
+      "notes": "High-priority independent event based on recent Sentinel-1 Pakistan flood research; not processed until an exported mask is supplied."
+    }
+  ],
+  "threshold_variant_groups": {},
+  "duplicate_source_hashes": [],
+  "duplicate_label_array_hashes": [],
+  "events": [
+    {
+      "event_id": "2019_sindh_monsoon_event_01",
+      "status": "processed",
+      "source_mask_path": "/Users/hasaannoor/Desktop/flood_prediction_Indus/outputs/validation/sentinel1/sentinel1_flood_mask_sindh_2019_event1_threshold_24.tif",
+      "source_mask_sha256": "eb9863d1f290e9c692d996accbe184caea32260d9e2c20deca6d57cc50a6765f",
+      "label_array_sha256": "db083e4440b22f8a1b128f48663cf62e1f123ce146a9a67acb7d4042b2043ddb",
+      "raster_profile": {
+        "path": "/Users/hasaannoor/Desktop/flood_prediction_Indus/outputs/validation/sentinel1/sentinel1_flood_mask_sindh_2019_event1_threshold_24.tif",
+        "crs": "EPSG:4326",
+        "width": 17441,
+        "height": 19000,
+        "count": 1,
+        "dtype": "uint8",
+        "nodata": null,
+        "bounds": [
+          66.49994486362947,
+          23.499927832566684,
+          71.20019992472804,
+          28.62032495204796
+        ],
+        "transform": [
+          0.00026949458523585647,
+          0.0,
+          66.49994486362947,
+          0.0,
+          -0.00026949458523585647,
+          28.62032495204796
+        ]
+      },
+      "permanent_water_mode": "not_supplied",
+      "rows": 240,
+      "valid_rows": 240,
+      "flood_cells": 17,
+      "non_flood_cells": 223,
+      "permanent_water_cells": 0,
+      "nodata_cells": 0,
+      "threshold": -3.0,
+      "threshold_method": "event_specific_fixed_threshold_with_percentile_sensitivity",
+      "threshold_alternatives_tested": [
+        -2.4,
+        -3.0
+      ],
+      "independent_event": true,
+      "parent_event_id": null
+    }
+  ],
+  "failures": [
+    {
+      "event_id": "2010_indus_superflood_unavailable_s1",
+      "status": "skipped_unavailable",
+      "reason": "unavailable",
+      "sentinel1_available": false,
+      "mask_available": false
+    },
+    {
+      "event_id": "2011_sindh_monsoon_unavailable_s1",
+      "status": "skipped_unavailable",
+      "reason": "unavailable",
+      "sentinel1_available": false,
+      "mask_available": false
+    },
+    {
+      "event_id": "2015_sindh_monsoon_candidate",
+      "status": "skipped_unavailable",
+      "reason": "pending_gee_export",
+      "sentinel1_available": true,
+      "mask_available": false
+    },
+    {
+      "event_id": "2020_sindh_monsoon_candidate",
+      "status": "skipped_unavailable",
+      "reason": "pending_gee_export",
+      "sentinel1_available": true,
+      "mask_available": false
+    },
+    {
+      "event_id": "2022_pakistan_sindh_event_01",
+      "status": "skipped_unavailable",
+      "reason": "pending_gee_export",
+      "sentinel1_available": true,
+      "mask_available": false
+    }
+  ],
+  "totals": {
+    "rows": 240,
+    "valid_rows": 240,
+    "flood_cells": 17,
+    "non_flood_cells": 223,
+    "permanent_water_cells": 0,
+    "nodata_cells": 0
+  },
+  "scientific_guardrails": [
+    "Threshold variants are not counted as independent events.",
+    "Permanent water is tracked separately from candidate observed inundation.",
+    "No model retraining is performed in Phase 14.",
+    "Unavailable and pending events remain visible in the inventory."
+  ]
+}

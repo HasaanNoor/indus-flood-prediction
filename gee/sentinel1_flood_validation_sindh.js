@@ -1,148 +1,108 @@
-// Sentinel-1 Flood Validation for Sindh, Pakistan
-// Pilot flood event refinement
+// Phase 14 Sentinel-1 multi-event flood-label workflow for Sindh, Pakistan.
+//
+// In the Earth Engine Code Editor, paste sentinel1_event_config.js above this
+// script or import it as a required script so SENTINEL_EVENTS is defined.
 
-// Peak flood period
-var eventStart = '2019-08-01';
-var eventEnd = '2019-08-15';
-
-// Baseline period
-var beforeStart = '2019-06-15';
-var beforeEnd = '2019-06-30';
-
-// Approximate Sindh boundary
 var sindh = ee.Geometry.Rectangle([66.5, 23.5, 71.2, 28.6]);
+var exportFolder = 'indus_flood_validation';
 
 Map.centerObject(sindh, 7);
 Map.addLayer(sindh, {color: 'red'}, 'Sindh AOI');
 
-// Sentinel-1 VH imagery
-var s1 = ee.ImageCollection('COPERNICUS/S1_GRD')
-  .filterBounds(sindh)
-  .filter(ee.Filter.eq('instrumentMode', 'IW'))
-  .filter(ee.Filter.listContains('transmitterReceiverPolarisation', 'VH'))
-  .filter(ee.Filter.eq('resolution_meters', 10))
-  .select('VH');
+function getS1Collection(eventConfig) {
+  var collection = ee.ImageCollection('COPERNICUS/S1_GRD')
+    .filterBounds(sindh)
+    .filter(ee.Filter.eq('instrumentMode', 'IW'))
+    .filter(ee.Filter.eq('resolution_meters', 10))
+    .filter(ee.Filter.listContains('transmitterReceiverPolarisation', eventConfig.polarization))
+    .filter(ee.Filter.eq('orbitProperties_pass', eventConfig.orbit_pass))
+    .select(eventConfig.polarization);
+  return collection;
+}
 
-// Pre-flood composite
-var before = s1
-  .filterDate(beforeStart, beforeEnd)
-  .median()
-  .clip(sindh);
+function areaKm2(mask) {
+  return mask
+    .selfMask()
+    .multiply(ee.Image.pixelArea())
+    .divide(1e6)
+    .reduceRegion({
+      reducer: ee.Reducer.sum(),
+      geometry: sindh,
+      scale: 30,
+      maxPixels: 1e13
+    });
+}
 
-// During-flood composite
-var during = s1
-  .filterDate(eventStart, eventEnd)
-  .median()
-  .clip(sindh);
+function buildPermanentWater(eventConfig) {
+  var gsw = ee.Image('JRC/GSW1_4/GlobalSurfaceWater');
+  return gsw.select('occurrence').gte(eventConfig.permanent_water_occurrence_threshold).rename('permanent_water');
+}
 
-// Difference image
-var difference = during.subtract(before);
+function cleanFloodMask(rawFlood, eventConfig) {
+  var permanentWater = buildPermanentWater(eventConfig);
+  var dem = ee.Image('USGS/SRTMGL1_003');
+  var slope = ee.Terrain.slope(dem).rename('slope_degrees');
+  var candidate = rawFlood
+    .where(permanentWater, 0)
+    .where(slope.gt(eventConfig.slope_threshold_degrees), 0)
+    .rename('candidate_observed_inundation');
+  var connectedPixels = candidate.connectedPixelCount(25, true);
+  var cleaned = candidate.updateMask(connectedPixels.gte(eventConfig.connected_pixel_threshold));
+  return cleaned.unmask(0).uint8().rename('candidate_observed_inundation');
+}
 
-// Examine the distribution of VH changes
-var stats = difference.reduceRegion({
-  reducer: ee.Reducer.percentile([1, 5, 10, 25, 50, 75, 90, 95, 99]),
-  geometry: sindh,
-  scale: 100,
-  maxPixels: 1e13
-});
-
-print('Difference statistics', stats);
-
-// Diagnostics
-print(
-  'Sentinel-1 images before flood:',
-  s1.filterDate(beforeStart, beforeEnd).size()
-);
-
-print(
-  'Sentinel-1 images during flood:',
-  s1.filterDate(eventStart, eventEnd).size()
-);
-
-// Threshold based on observed VH difference distribution.
-// p10 was around -2.37, so -2.4 captures strongest negative-change pixels.
-var floodRaw = difference.lt(-3.0);
-
-// Mask permanent water using JRC Global Surface Water
-var gsw = ee.Image('JRC/GSW1_4/GlobalSurfaceWater');
-var permanentWater = gsw.select('seasonality').gte(10);
-var flood = floodRaw.where(permanentWater, 0);
-
-// Mask steep slopes using SRTM
-var dem = ee.Image('USGS/SRTMGL1_003');
-var slope = ee.Terrain.slope(dem);
-flood = flood.where(slope.gt(5), 0);
-
-// Remove tiny noisy patches
-var connectedPixels = flood.connectedPixelCount(25);
-flood = flood.updateMask(connectedPixels.gte(8));
-
-// Calculate detected flood area in km2
-var floodArea = flood
-  .multiply(ee.Image.pixelArea())
-  .divide(1e6)
-  .reduceRegion({
-    reducer: ee.Reducer.sum(),
+function processSentinelEvent(eventConfig) {
+  var s1 = getS1Collection(eventConfig);
+  var beforeCollection = s1.filterDate(eventConfig.baseline_start, eventConfig.baseline_end);
+  var duringCollection = s1.filterDate(eventConfig.event_start, eventConfig.event_end);
+  var before = beforeCollection.median().clip(sindh);
+  var during = duringCollection.median().clip(sindh);
+  var difference = during.subtract(before).rename('difference_db');
+  var percentiles = difference.reduceRegion({
+    reducer: ee.Reducer.percentile([1, 5, 10, 25, 50, 75, 90, 95, 99]),
     geometry: sindh,
-    scale: 30,
+    scale: 100,
     maxPixels: 1e13
   });
 
-print('Cleaned flood area km2:', floodArea);
+  print('Event', eventConfig.event_id, eventConfig.event_name);
+  print('Baseline window', eventConfig.baseline_start, eventConfig.baseline_end);
+  print('Event window', eventConfig.event_start, eventConfig.event_end);
+  print('Polarization/orbit', eventConfig.polarization, eventConfig.orbit_pass);
+  print('Baseline image count', beforeCollection.size());
+  print('During image count', duringCollection.size());
+  print('Difference percentiles', percentiles);
 
-// Visualization
-Map.addLayer(
-  before,
-  {min: -25, max: 0},
-  'Before flood VH'
-);
+  var rawFlood = difference.lt(eventConfig.threshold).rename('raw_threshold_flood');
+  var cleaned = cleanFloodMask(rawFlood, eventConfig);
+  print('Selected threshold', eventConfig.threshold);
+  print('Cleaned flood area km2', areaKm2(cleaned));
 
-Map.addLayer(
-  during,
-  {min: -25, max: 0},
-  'During flood VH'
-);
+  eventConfig.threshold_alternatives.forEach(function(threshold) {
+    var sensitivity = cleanFloodMask(difference.lt(threshold), eventConfig);
+    print('Threshold sensitivity area km2 ' + eventConfig.event_id + ' ' + threshold, areaKm2(sensitivity));
+  });
 
-Map.addLayer(
-  difference,
-  {
-    min: -3,
-    max: 3,
-    palette: ['blue', 'white', 'red']
-  },
-  'VH difference'
-);
+  var permanentWater = buildPermanentWater(eventConfig).uint8();
+  var exportImage = cleaned.addBands(permanentWater).clip(sindh);
 
-Map.addLayer(
-  gsw.select('occurrence'),
-  {
-    min: 0,
-    max: 100
-  },
-  'JRC Water Occurrence',
-  false
-);
+  Map.addLayer(before, {min: -25, max: 0}, eventConfig.event_id + ' before ' + eventConfig.polarization, false);
+  Map.addLayer(during, {min: -25, max: 0}, eventConfig.event_id + ' during ' + eventConfig.polarization, false);
+  Map.addLayer(difference, {min: -4, max: 4, palette: ['blue', 'white', 'red']}, eventConfig.event_id + ' difference', false);
+  Map.addLayer(cleaned.selfMask(), {palette: ['0000ff']}, eventConfig.event_id + ' candidate observed inundation', eventConfig.export_enabled);
+  Map.addLayer(permanentWater.selfMask(), {palette: ['00ffff']}, eventConfig.event_id + ' permanent water mask', false);
 
-Map.addLayer(
-  floodRaw.selfMask(),
-  {palette: ['cyan']},
-  'Raw flood threshold -2.4',
-  false
-);
+  if (eventConfig.export_enabled) {
+    Export.image.toDrive({
+      image: exportImage,
+      description: 'sentinel1_flood_mask_sindh_' + eventConfig.event_id,
+      folder: exportFolder,
+      fileNamePrefix: 'sentinel1_flood_mask_sindh_' + eventConfig.event_id,
+      region: sindh,
+      scale: 30,
+      maxPixels: 1e13
+    });
+  }
+}
 
-Map.addLayer(
-  flood.selfMask(),
-  {palette: ['0000ff']},
-  'Cleaned flood extent -2.4'
-);
-
-// Export cleaned flood mask
-Export.image.toDrive({
-  image: flood.selfMask(),
-  description: 'sentinel1_flood_mask_sindh_2019_event1_threshold_24',
-  folder: 'indus_flood_validation',
-  fileNamePrefix: 'sentinel1_flood_mask_sindh_2019_event1_threshold_24',
-  region: sindh,
-  scale: 30,
-  maxPixels: 1e13
-});
+SENTINEL_EVENTS.forEach(processSentinelEvent);

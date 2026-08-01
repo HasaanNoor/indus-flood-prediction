@@ -212,6 +212,32 @@ The stricter **-3.0 dB** threshold was selected as the preferred validation mask
 
 ---
 
+## Multi-Event Sentinel-1 Label Inventory
+
+Phase 14 adds an inventory-driven Sentinel-1 label workflow for expanding beyond the single 2019 validation event used in Phase 13. The inventory defines independent flood events separately from threshold variants and records event windows, baseline windows, polarization, orbit strategy, threshold method, permanent-water settings, slope masking, connected-pixel cleanup, and provenance.
+
+Run the inventory tools:
+
+```bash
+python3 -m src.spatial.sentinel_pipeline --list-events
+python3 -m src.spatial.sentinel_pipeline --event 2019_sindh_monsoon_event_01
+python3 -m src.spatial.sentinel_pipeline --all-events --overwrite
+```
+
+Outputs are written under:
+
+```text
+data_processed/spatial/labels/
+  inventory/sentinel_event_inventory.json
+  events/<event_id>/
+  combined/
+outputs/validation/sentinel_label_inventory_report.*
+```
+
+Permanent water is tracked separately from candidate observed inundation. Missing or unavailable events remain in the inventory and are not fabricated into labels. The current local processed event count is still limited by available exported masks, so Phase 14 does not claim robust cross-event spatial model generalization and does not retrain models.
+
+---
+
 ## Multi-Horizon Spatial Flood-Risk Inference
 
 The repository includes a deterministic inference workflow for the trained multi-horizon XGBoost models. The workflow loads saved model artifacts and processed feature datasets; it does not retrain models.
