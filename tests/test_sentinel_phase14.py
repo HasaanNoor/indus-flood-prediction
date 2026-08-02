@@ -14,10 +14,10 @@ from shapely.geometry import box
 
 from src.spatial.configuration import SpatialPipelineConfig
 from src.spatial.grid import grid_from_era5
-from src.spatial.sentinel_ingestion import ingest_event_labels
-from src.spatial.sentinel_inventory import load_event_inventory
+from src.spatial.sentinel_ingestion import ingest_event_labels, valid_existing_event_outputs
+from src.spatial.sentinel_inventory import load_event_inventory, update_inventory_records
 from src.spatial.sentinel_pipeline import run_sentinel_pipeline
-from src.spatial.sentinel_validation import build_inventory_report
+from src.spatial.sentinel_validation import build_inventory_report, write_combined_outputs
 
 
 def _write_era5(path: Path) -> None:
@@ -188,7 +188,10 @@ def test_multiband_ingestion_preserves_nodata_and_permanent_water(phase14_source
     assert summary["rows"] == 4
     assert summary["permanent_water_cells"] == 1
     assert summary["nodata_cells"] == 1
+    assert summary["processing_version"] == "phase15_sentinel_multi_event_v1"
+    assert "label_array_sha256" in summary
     assert labels["observed_inundation_label"].isna().sum() == 2
+    assert labels["processing_version"].nunique() == 1
     assert labels["grid_cell_id"].tolist() == ["sindh_era5_r000_c000", "sindh_era5_r000_c001", "sindh_era5_r001_c000", "sindh_era5_r001_c001"]
 
 
@@ -240,3 +243,74 @@ def test_restart_safe_skip_and_deterministic_repeated_execution(phase14_sources,
     assert second["processed_event_count"] == 1
     assert labels_path.read_bytes() == first_bytes
     assert (tmp_path / "validation" / "sentinel_label_inventory_report.md").exists()
+    updated = json.loads(inventory.read_text())["events"][0]
+    assert updated["processed_status"] == "processed"
+    assert updated["validation_status"] == "processed"
+    assert updated["flood_cell_count"] >= 0
+    assert updated["raster_sha256"] == updated["source_mask_sha256"]
+    assert updated["label_sha256"] == updated["label_array_sha256"]
+
+
+def test_combined_regeneration_rejects_duplicate_event_grid_pairs(phase14_sources) -> None:
+    _, grid, _ = phase14_sources
+    cells = pd.DataFrame(
+        {
+            "event_id": ["event_a", "event_a"],
+            "grid_cell_id": [grid.grid_cell_ids[0, 0], grid.grid_cell_ids[0, 0]],
+            "observed_inundation_label": pd.Series([1, 0], dtype="Int8"),
+            "permanent_water_label": pd.Series([0, 0], dtype="Int8"),
+            "event_date": ["2020-01-03", "2020-01-03"],
+            "threshold": [-3.0, -3.0],
+            "processing_version": ["phase15_sentinel_multi_event_v1", "phase15_sentinel_multi_event_v1"],
+        }
+    )
+    with pytest.raises(ValueError, match="duplicate event_id/grid_cell_id"):
+        write_combined_outputs([cells], [], Path("/tmp/unused_combined"))
+
+
+def test_existing_output_hash_validation_rejects_tampering(phase14_sources) -> None:
+    tmp_path, grid, _ = phase14_sources
+    mask = tmp_path / "mask.tif"
+    _write_raster(mask, np.array([[1, 0], [0, 1]], dtype="uint8"), transform=grid.transform)
+    inventory = tmp_path / "inventory.json"
+    _inventory(inventory, mask)
+    event = load_event_inventory(inventory)[0]
+    labels_path = tmp_path / "labels.parquet"
+    labels, summary = ingest_event_labels(event, grid, labels_path)
+    metadata_path = tmp_path / "metadata.json"
+    validation_path = tmp_path / "validation.json"
+    metadata_path.write_text(json.dumps({"event": event.raw, "ingestion": summary}))
+    validation_path.write_text(json.dumps(summary))
+    assert valid_existing_event_outputs(labels_path, metadata_path, validation_path, event.event_id)
+
+    labels.loc[0, "observed_inundation_label"] = 0
+    labels.to_parquet(labels_path, index=False)
+    assert not valid_existing_event_outputs(labels_path, metadata_path, validation_path, event.event_id)
+
+
+def test_inventory_status_transitions_for_pending_unavailable_and_processed(phase14_sources) -> None:
+    tmp_path, _, _ = phase14_sources
+    inventory = tmp_path / "inventory.json"
+    _inventory(inventory, None)
+    payload = json.loads(inventory.read_text())
+    payload["events"].append({**payload["events"][0], "event_id": "unavailable", "sentinel1_available": False, "mask_available": False})
+    inventory.write_text(json.dumps(payload))
+    update_inventory_records(
+        inventory,
+        [
+            {
+                "event_id": "2020_event_a",
+                "source_mask_sha256": "raster",
+                "label_array_sha256": "label",
+                "flood_cells": 2,
+                "non_flood_cells": 3,
+                "permanent_water_cells": 1,
+                "processing_version": "phase15_sentinel_multi_event_v1",
+            }
+        ],
+        [],
+    )
+    records = {row["event_id"]: row for row in json.loads(inventory.read_text())["events"]}
+    assert records["2020_event_a"]["processed_status"] == "processed"
+    assert records["2020_event_a"]["flood_cell_count"] == 2
+    assert records["unavailable"]["processed_status"] == "unavailable"

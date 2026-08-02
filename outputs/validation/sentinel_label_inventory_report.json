@@ -1,11 +1,23 @@
 {
-  "status": "partial",
+  "status": "passed",
   "issues": [],
   "inventory_event_count": 6,
   "independent_event_count": 6,
   "sentinel1_available_independent_event_count": 4,
   "processable_mask_event_count": 1,
   "processed_event_count": 1,
+  "processed_events": [
+    "2019_sindh_monsoon_event_01"
+  ],
+  "pending_events": [
+    "2015_sindh_monsoon_candidate",
+    "2020_sindh_monsoon_candidate",
+    "2022_pakistan_sindh_event_01"
+  ],
+  "unavailable_events": [
+    "2010_indus_superflood_unavailable_s1",
+    "2011_sindh_monsoon_unavailable_s1"
+  ],
   "unavailable_or_pending_events": [
     {
       "event_id": "2010_indus_superflood_unavailable_s1",
@@ -46,6 +58,16 @@
   "threshold_variant_groups": {},
   "duplicate_source_hashes": [],
   "duplicate_label_array_hashes": [],
+  "duplicate_events": [],
+  "class_balance_by_event": [
+    {
+      "event_id": "2019_sindh_monsoon_event_01",
+      "valid_rows": 240,
+      "flood_cells": 17,
+      "non_flood_cells": 223,
+      "permanent_water_cells": 0
+    }
+  ],
   "events": [
     {
       "event_id": "2019_sindh_monsoon_event_01",
@@ -89,47 +111,16 @@
         -2.4,
         -3.0
       ],
+      "export_timestamp": null,
+      "baseline_image_count": null,
+      "event_image_count": null,
+      "processing_version": "phase15_sentinel_multi_event_v1",
+      "validation_result": "passed",
       "independent_event": true,
       "parent_event_id": null
     }
   ],
-  "failures": [
-    {
-      "event_id": "2010_indus_superflood_unavailable_s1",
-      "status": "skipped_unavailable",
-      "reason": "unavailable",
-      "sentinel1_available": false,
-      "mask_available": false
-    },
-    {
-      "event_id": "2011_sindh_monsoon_unavailable_s1",
-      "status": "skipped_unavailable",
-      "reason": "unavailable",
-      "sentinel1_available": false,
-      "mask_available": false
-    },
-    {
-      "event_id": "2015_sindh_monsoon_candidate",
-      "status": "skipped_unavailable",
-      "reason": "pending_gee_export",
-      "sentinel1_available": true,
-      "mask_available": false
-    },
-    {
-      "event_id": "2020_sindh_monsoon_candidate",
-      "status": "skipped_unavailable",
-      "reason": "pending_gee_export",
-      "sentinel1_available": true,
-      "mask_available": false
-    },
-    {
-      "event_id": "2022_pakistan_sindh_event_01",
-      "status": "skipped_unavailable",
-      "reason": "pending_gee_export",
-      "sentinel1_available": true,
-      "mask_available": false
-    }
-  ],
+  "failures": [],
   "totals": {
     "rows": 240,
     "valid_rows": 240,
@@ -142,6 +133,7 @@
     "Threshold variants are not counted as independent events.",
     "Permanent water is tracked separately from candidate observed inundation.",
     "No model retraining is performed in Phase 14.",
+    "No model retraining is performed in Phase 15.",
     "Unavailable and pending events remain visible in the inventory."
   ]
 }

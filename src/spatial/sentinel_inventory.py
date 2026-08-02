@@ -43,6 +43,16 @@ class SentinelEventConfig:
     parent_event_id: str | None
     notes: str
     source_references: list[str]
+    processed_status: str | None
+    export_timestamp: str | None
+    baseline_image_count: int | None
+    event_image_count: int | None
+    flood_cell_count: int | None
+    non_flood_count: int | None
+    permanent_water_count: int | None
+    raster_sha256: str | None
+    label_sha256: str | None
+    processing_version: str | None
     raw: dict[str, Any]
 
     @property
@@ -114,6 +124,16 @@ def _event_from_dict(record: dict[str, Any], base_dir: Path) -> SentinelEventCon
         parent_event_id=record.get("parent_event_id"),
         notes=str(record["notes"]),
         source_references=[str(v) for v in record.get("source_references", [])],
+        processed_status=record.get("processed_status"),
+        export_timestamp=record.get("export_timestamp"),
+        baseline_image_count=None if record.get("baseline_image_count") is None else int(record["baseline_image_count"]),
+        event_image_count=None if record.get("event_image_count") is None else int(record["event_image_count"]),
+        flood_cell_count=None if record.get("flood_cell_count") is None else int(record["flood_cell_count"]),
+        non_flood_count=None if record.get("non_flood_count") is None else int(record["non_flood_count"]),
+        permanent_water_count=None if record.get("permanent_water_count") is None else int(record["permanent_water_count"]),
+        raster_sha256=record.get("raster_sha256"),
+        label_sha256=record.get("label_sha256"),
+        processing_version=record.get("processing_version"),
         raw=dict(record),
     )
 
@@ -125,6 +145,66 @@ def load_event_inventory(path: Path = DEFAULT_INVENTORY_PATH, base_dir: Path = P
     events = [_event_from_dict(record, base_dir) for record in payload.get("events", [])]
     validate_event_inventory(events)
     return events
+
+
+def load_inventory_payload(path: Path = DEFAULT_INVENTORY_PATH) -> dict[str, Any]:
+    if not path.exists():
+        raise FileNotFoundError(f"Sentinel event inventory not found: {path}")
+    return json.loads(path.read_text())
+
+
+def write_inventory_payload(payload: dict[str, Any], path: Path = DEFAULT_INVENTORY_PATH) -> Path:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, indent=2) + "\n")
+    return path
+
+
+def _event_status(record: dict[str, Any]) -> str:
+    if not record.get("sentinel1_available", False):
+        return "unavailable"
+    if not record.get("mask_available", False):
+        return "pending_gee_export"
+    return "verified_export_available"
+
+
+def update_inventory_records(
+    path: Path,
+    summaries: list[dict[str, object]],
+    failures: list[dict[str, object]],
+) -> Path:
+    payload = load_inventory_payload(path)
+    payload["schema_version"] = "phase15_sentinel_event_inventory_v2"
+    summary_by_id = {str(summary["event_id"]): summary for summary in summaries}
+    failure_by_id = {str(failure["event_id"]): failure for failure in failures}
+    for record in payload.get("events", []):
+        event_id = str(record["event_id"])
+        if event_id in summary_by_id:
+            summary = summary_by_id[event_id]
+            record["processed_status"] = "processed"
+            record["validation_status"] = "processed"
+            record["source_mask_sha256"] = summary.get("source_mask_sha256")
+            record["raster_sha256"] = summary.get("source_mask_sha256")
+            record["label_sha256"] = summary.get("label_array_sha256")
+            record["label_array_sha256"] = summary.get("label_array_sha256")
+            record["flood_cell_count"] = summary.get("flood_cells")
+            record["non_flood_count"] = summary.get("non_flood_cells")
+            record["permanent_water_count"] = summary.get("permanent_water_cells")
+            record["validation_result"] = summary.get("validation_result", "passed")
+            record["processing_version"] = summary.get("processing_version")
+            record["export_timestamp"] = summary.get("export_timestamp", record.get("export_timestamp"))
+            record["baseline_image_count"] = summary.get("baseline_image_count", record.get("baseline_image_count"))
+            record["event_image_count"] = summary.get("event_image_count", record.get("event_image_count"))
+        elif event_id in failure_by_id:
+            record["processed_status"] = "failed"
+            record["validation_status"] = "failed"
+            record["validation_result"] = failure_by_id[event_id].get("error")
+        else:
+            status = _event_status(record)
+            if record.get("processed_status") in {None, "failed"}:
+                record["processed_status"] = status
+            if record.get("validation_status") == "failed":
+                record["validation_status"] = status
+    return write_inventory_payload(payload, path)
 
 
 def validate_event_inventory(events: list[SentinelEventConfig]) -> None:

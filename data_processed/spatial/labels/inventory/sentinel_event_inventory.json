@@ -1,5 +1,5 @@
 {
-  "schema_version": "phase14_sentinel_event_inventory_v1",
+  "schema_version": "phase15_sentinel_event_inventory_v2",
   "inventory_notes": [
     "Events are independent flood episodes, not threshold variants.",
     "Sentinel-1 labels are candidate observed inundation and are not treated as perfect ground truth.",
@@ -40,7 +40,9 @@
       "source_references": [
         "Google Earth Engine COPERNICUS/S1_GRD catalog availability",
         "Pakistan flood literature documenting 2010 Indus flood impacts"
-      ]
+      ],
+      "processed_status": "unavailable",
+      "validation_result": null
     },
     {
       "event_id": "2011_sindh_monsoon_unavailable_s1",
@@ -75,7 +77,9 @@
       "notes": "Retained for historical completeness but excluded from Sentinel-1 label counts.",
       "source_references": [
         "Google Earth Engine COPERNICUS/S1_GRD catalog availability"
-      ]
+      ],
+      "processed_status": "unavailable",
+      "validation_result": null
     },
     {
       "event_id": "2015_sindh_monsoon_candidate",
@@ -93,7 +97,11 @@
       "orbit_strategy": "same_pass_pre_and_during_required",
       "threshold_method": "event_specific_percentile_with_sensitivity",
       "selected_threshold": -3.0,
-      "threshold_alternatives_tested": [-2.4, -3.0, -3.5],
+      "threshold_alternatives_tested": [
+        -2.4,
+        -3.0,
+        -3.5
+      ],
       "threshold_sensitivity": [],
       "flood_area_estimate_km2": null,
       "permanent_water_mask_source": "JRC/GSW1_4/GlobalSurfaceWater occurrence",
@@ -111,7 +119,9 @@
       "source_references": [
         "Google Earth Engine COPERNICUS/S1_GRD catalog",
         "UN-SPIDER Sentinel-1 flood mapping recommended practice"
-      ]
+      ],
+      "processed_status": "pending_gee_export",
+      "validation_result": null
     },
     {
       "event_id": "2019_sindh_monsoon_event_01",
@@ -129,7 +139,10 @@
       "orbit_strategy": "same_pass_pre_and_during_required",
       "threshold_method": "event_specific_fixed_threshold_with_percentile_sensitivity",
       "selected_threshold": -3.0,
-      "threshold_alternatives_tested": [-2.4, -3.0],
+      "threshold_alternatives_tested": [
+        -2.4,
+        -3.0
+      ],
       "threshold_sensitivity": [
         {
           "threshold": -2.4,
@@ -154,14 +167,27 @@
       "permanent_water_mask_path": null,
       "sentinel1_available": true,
       "mask_available": true,
-      "validation_status": "candidate_export_available",
+      "validation_status": "processed",
       "independent_event": true,
       "parent_event_id": null,
       "notes": "Local exported mask filename says threshold_24 but the current GEE script applies -3.0. Inventory records the stricter selected threshold and keeps -2.4 as an alternative sensitivity value.",
       "source_references": [
         "gee/sentinel1_flood_validation_sindh.js",
         "README Sentinel-1 threshold sensitivity table"
-      ]
+      ],
+      "processed_status": "processed",
+      "source_mask_sha256": "eb9863d1f290e9c692d996accbe184caea32260d9e2c20deca6d57cc50a6765f",
+      "raster_sha256": "eb9863d1f290e9c692d996accbe184caea32260d9e2c20deca6d57cc50a6765f",
+      "label_sha256": "db083e4440b22f8a1b128f48663cf62e1f123ce146a9a67acb7d4042b2043ddb",
+      "label_array_sha256": "db083e4440b22f8a1b128f48663cf62e1f123ce146a9a67acb7d4042b2043ddb",
+      "flood_cell_count": 17,
+      "non_flood_count": 223,
+      "permanent_water_count": 0,
+      "validation_result": "passed",
+      "processing_version": "phase15_sentinel_multi_event_v1",
+      "export_timestamp": null,
+      "baseline_image_count": null,
+      "event_image_count": null
     },
     {
       "event_id": "2020_sindh_monsoon_candidate",
@@ -179,7 +205,11 @@
       "orbit_strategy": "same_pass_pre_and_during_required",
       "threshold_method": "event_specific_percentile_with_sensitivity",
       "selected_threshold": -3.0,
-      "threshold_alternatives_tested": [-2.4, -3.0, -3.5],
+      "threshold_alternatives_tested": [
+        -2.4,
+        -3.0,
+        -3.5
+      ],
       "threshold_sensitivity": [],
       "flood_area_estimate_km2": null,
       "permanent_water_mask_source": "JRC/GSW1_4/GlobalSurfaceWater occurrence",
@@ -197,7 +227,9 @@
       "source_references": [
         "Google Earth Engine COPERNICUS/S1_GRD catalog",
         "UN-SPIDER Sentinel-1 flood mapping recommended practice"
-      ]
+      ],
+      "processed_status": "pending_gee_export",
+      "validation_result": null
     },
     {
       "event_id": "2022_pakistan_sindh_event_01",
@@ -215,7 +247,11 @@
       "orbit_strategy": "same_pass_pre_and_during_required",
       "threshold_method": "event_specific_percentile_with_sensitivity",
       "selected_threshold": -3.0,
-      "threshold_alternatives_tested": [-2.4, -3.0, -3.5],
+      "threshold_alternatives_tested": [
+        -2.4,
+        -3.0,
+        -3.5
+      ],
       "threshold_sensitivity": [],
       "flood_area_estimate_km2": null,
       "permanent_water_mask_source": "JRC/GSW1_4/GlobalSurfaceWater occurrence",
@@ -233,7 +269,9 @@
       "source_references": [
         "Chen et al. 2024 Remote Sensing of Environment Pakistan 2022 floods Sentinel-1 study",
         "Google Earth Engine COPERNICUS/S1_GRD catalog"
-      ]
+      ],
+      "processed_status": "pending_gee_export",
+      "validation_result": null
     }
   ]
 }

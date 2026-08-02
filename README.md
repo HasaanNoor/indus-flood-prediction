@@ -214,13 +214,14 @@ The stricter **-3.0 dB** threshold was selected as the preferred validation mask
 
 ## Multi-Event Sentinel-1 Label Inventory
 
-Phase 14 adds an inventory-driven Sentinel-1 label workflow for expanding beyond the single 2019 validation event used in Phase 13. The inventory defines independent flood events separately from threshold variants and records event windows, baseline windows, polarization, orbit strategy, threshold method, permanent-water settings, slope masking, connected-pixel cleanup, and provenance.
+Phase 15 extends the inventory-driven Sentinel-1 label workflow beyond setup into repeatable multi-event processing. The inventory defines independent flood events separately from threshold variants and records event windows, baseline windows, polarization, orbit strategy, threshold method, permanent-water settings, slope masking, connected-pixel cleanup, processing status, raster hashes, label hashes, validation results, and class counts.
 
 Run the inventory tools:
 
 ```bash
 python3 -m src.spatial.sentinel_pipeline --list-events
 python3 -m src.spatial.sentinel_pipeline --event 2019_sindh_monsoon_event_01
+python3 -m src.spatial.sentinel_pipeline --all-events --skip-existing
 python3 -m src.spatial.sentinel_pipeline --all-events --overwrite
 ```
 
@@ -234,7 +235,11 @@ data_processed/spatial/labels/
 outputs/validation/sentinel_label_inventory_report.*
 ```
 
-Permanent water is tracked separately from candidate observed inundation. Missing or unavailable events remain in the inventory and are not fabricated into labels. The current local processed event count is still limited by available exported masks, so Phase 14 does not claim robust cross-event spatial model generalization and does not retrain models.
+Manual Earth Engine export remains the only required human step for new events. Use `gee/sentinel1_event_config.js` to configure candidate events and `gee/sentinel1_flood_validation_sindh.js` to print image counts, orbit/polarization diagnostics, threshold sensitivity, flood-area estimates, permanent-water area, and the expected export name. New exports should be two-band GeoTIFFs: band 1 `candidate_observed_inundation`, band 2 `permanent_water`.
+
+Current target events are `2015_sindh_monsoon_candidate`, `2020_sindh_monsoon_candidate`, and `2022_pakistan_sindh_event_01`; these remain pending until GEE verifies imagery availability and exported masks are placed under `outputs/validation/sentinel1/` and referenced in the inventory. The current local processed independent-event count is 1 (`2019_sindh_monsoon_event_01`).
+
+Permanent water is tracked separately from candidate observed inundation. Missing or unavailable events remain in the inventory and are not fabricated into labels. Phase 15 does not retrain models and does not claim robust cross-event spatial model generalization until additional independent Sentinel-1 exports are processed.
 
 ---
 

@@ -5,6 +5,8 @@
 
 var sindh = ee.Geometry.Rectangle([66.5, 23.5, 71.2, 28.6]);
 var exportFolder = 'indus_flood_validation';
+var selectedEventIds = []; // Empty means process all configured events. Example: ['2022_pakistan_sindh_event_01']
+var printThresholdDiagnostics = true;
 
 Map.centerObject(sindh, 7);
 Map.addLayer(sindh, {color: 'red'}, 'Sindh AOI');
@@ -15,8 +17,10 @@ function getS1Collection(eventConfig) {
     .filter(ee.Filter.eq('instrumentMode', 'IW'))
     .filter(ee.Filter.eq('resolution_meters', 10))
     .filter(ee.Filter.listContains('transmitterReceiverPolarisation', eventConfig.polarization))
-    .filter(ee.Filter.eq('orbitProperties_pass', eventConfig.orbit_pass))
     .select(eventConfig.polarization);
+  if (eventConfig.orbit_pass !== null && eventConfig.orbit_pass !== undefined && eventConfig.orbit_pass !== 'ANY') {
+    collection = collection.filter(ee.Filter.eq('orbitProperties_pass', eventConfig.orbit_pass));
+  }
   return collection;
 }
 
@@ -66,6 +70,7 @@ function processSentinelEvent(eventConfig) {
   });
 
   print('Event', eventConfig.event_id, eventConfig.event_name);
+  print('Expected local source_mask_path', 'outputs/validation/sentinel1/sentinel1_flood_mask_sindh_' + eventConfig.event_id + '.tif');
   print('Baseline window', eventConfig.baseline_start, eventConfig.baseline_end);
   print('Event window', eventConfig.event_start, eventConfig.event_end);
   print('Polarization/orbit', eventConfig.polarization, eventConfig.orbit_pass);
@@ -75,15 +80,17 @@ function processSentinelEvent(eventConfig) {
 
   var rawFlood = difference.lt(eventConfig.threshold).rename('raw_threshold_flood');
   var cleaned = cleanFloodMask(rawFlood, eventConfig);
+  var permanentWater = buildPermanentWater(eventConfig).uint8();
   print('Selected threshold', eventConfig.threshold);
   print('Cleaned flood area km2', areaKm2(cleaned));
+  print('Permanent water area km2', areaKm2(permanentWater));
 
-  eventConfig.threshold_alternatives.forEach(function(threshold) {
-    var sensitivity = cleanFloodMask(difference.lt(threshold), eventConfig);
-    print('Threshold sensitivity area km2 ' + eventConfig.event_id + ' ' + threshold, areaKm2(sensitivity));
-  });
-
-  var permanentWater = buildPermanentWater(eventConfig).uint8();
+  if (printThresholdDiagnostics) {
+    eventConfig.threshold_alternatives.forEach(function(threshold) {
+      var sensitivity = cleanFloodMask(difference.lt(threshold), eventConfig);
+      print('Threshold sensitivity area km2 ' + eventConfig.event_id + ' ' + threshold, areaKm2(sensitivity));
+    });
+  }
   var exportImage = cleaned.addBands(permanentWater).clip(sindh);
 
   Map.addLayer(before, {min: -25, max: 0}, eventConfig.event_id + ' before ' + eventConfig.polarization, false);
@@ -105,4 +112,8 @@ function processSentinelEvent(eventConfig) {
   }
 }
 
-SENTINEL_EVENTS.forEach(processSentinelEvent);
+function shouldProcess(eventConfig) {
+  return selectedEventIds.length === 0 || selectedEventIds.indexOf(eventConfig.event_id) !== -1;
+}
+
+SENTINEL_EVENTS.filter(shouldProcess).forEach(processSentinelEvent);

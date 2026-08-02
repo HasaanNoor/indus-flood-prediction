@@ -10,7 +10,7 @@ from src.paths import OUTPUTS, PROJECT_ROOT
 from src.spatial.configuration import SpatialPipelineConfig
 from src.spatial.grid import grid_from_era5
 from src.spatial.sentinel_ingestion import ingest_event_labels, valid_existing_event_outputs, write_event_metadata
-from src.spatial.sentinel_inventory import DEFAULT_INVENTORY_PATH, SentinelEventConfig, load_event_inventory
+from src.spatial.sentinel_inventory import DEFAULT_INVENTORY_PATH, SentinelEventConfig, load_event_inventory, update_inventory_records
 from src.spatial.sentinel_validation import build_inventory_report, write_combined_outputs, write_inventory_reports
 
 
@@ -32,17 +32,16 @@ def _read_existing_summary(validation_path: Path, event_id: str) -> dict[str, ob
     return summary
 
 
-def process_event(event: SentinelEventConfig, grid, overwrite: bool = False) -> tuple[pd.DataFrame | None, dict[str, object] | None, dict[str, object] | None]:
+def process_event(
+    event: SentinelEventConfig,
+    grid,
+    overwrite: bool = False,
+    skip_existing: bool = True,
+) -> tuple[pd.DataFrame | None, dict[str, object] | None, dict[str, object] | None]:
     labels_path, metadata_path, validation_path = _event_paths(event.event_id)
     if not event.mask_available or event.source_mask_path is None:
-        return None, None, {
-            "event_id": event.event_id,
-            "status": "skipped_unavailable",
-            "reason": event.validation_status,
-            "sentinel1_available": event.sentinel1_available,
-            "mask_available": event.mask_available,
-        }
-    if not overwrite and valid_existing_event_outputs(labels_path, metadata_path, validation_path, event.event_id):
+        return None, None, None
+    if skip_existing and not overwrite and valid_existing_event_outputs(labels_path, metadata_path, validation_path, event.event_id):
         return pd.read_parquet(labels_path), _read_existing_summary(validation_path, event.event_id), None
     try:
         labels, summary = ingest_event_labels(event, grid, labels_path)
@@ -52,11 +51,26 @@ def process_event(event: SentinelEventConfig, grid, overwrite: bool = False) -> 
         return None, None, {"event_id": event.event_id, "status": "failed", "error": str(exc)}
 
 
+def _collect_existing_outputs(events: list[SentinelEventConfig]) -> tuple[list[pd.DataFrame], list[dict[str, object]]]:
+    frames: list[pd.DataFrame] = []
+    summaries: list[dict[str, object]] = []
+    for event in events:
+        labels_path, metadata_path, validation_path = _event_paths(event.event_id)
+        if not valid_existing_event_outputs(labels_path, metadata_path, validation_path, event.event_id):
+            continue
+        frames.append(pd.read_parquet(labels_path))
+        summary = json.loads(validation_path.read_text())
+        summary["event_id"] = event.event_id
+        summaries.append(summary)
+    return frames, summaries
+
+
 def run_sentinel_pipeline(
     inventory_path: Path = DEFAULT_INVENTORY_PATH,
     event_id: str | None = None,
     all_events: bool = False,
     overwrite: bool = False,
+    skip_existing: bool = True,
     config: SpatialPipelineConfig | None = None,
 ) -> dict[str, object]:
     config = config or SpatialPipelineConfig()
@@ -75,7 +89,7 @@ def run_sentinel_pipeline(
     summaries: list[dict[str, object]] = []
     failures: list[dict[str, object]] = []
     for event in selected:
-        frame, summary, failure = process_event(event, grid, overwrite=overwrite)
+        frame, summary, failure = process_event(event, grid, overwrite=overwrite, skip_existing=skip_existing)
         if frame is not None:
             frames.append(frame)
         if summary is not None:
@@ -83,8 +97,11 @@ def run_sentinel_pipeline(
         if failure is not None:
             failures.append(failure)
 
-    combined_outputs = write_combined_outputs(frames, summaries, COMBINED_DIR)
-    report = build_inventory_report(events, summaries, failures)
+    existing_frames, existing_summaries = _collect_existing_outputs(events)
+    combined_outputs = write_combined_outputs(existing_frames, existing_summaries, COMBINED_DIR)
+    update_inventory_records(inventory_path, existing_summaries, failures)
+    events = load_event_inventory(inventory_path)
+    report = build_inventory_report(events, existing_summaries, failures)
     report_json, report_md = write_inventory_reports(
         report,
         VALIDATION_DIR / "sentinel_label_inventory_report.json",
@@ -92,7 +109,7 @@ def run_sentinel_pipeline(
     )
     return {
         "selected_event_count": len(selected),
-        "processed_event_count": len(summaries),
+        "processed_event_count": len(existing_summaries),
         "failure_count": len(failures),
         "combined_outputs": combined_outputs,
         "validation_report_json": str(report_json),
@@ -123,6 +140,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--event")
     parser.add_argument("--all-events", action="store_true")
     parser.add_argument("--overwrite", action="store_true")
+    parser.add_argument("--skip-existing", action=argparse.BooleanOptionalAction, default=True)
     return parser.parse_args()
 
 
@@ -133,7 +151,13 @@ def main() -> None:
         return
     if bool(args.event) == bool(args.all_events):
         raise ValueError("Provide exactly one of --event or --all-events, or use --list-events.")
-    outputs = run_sentinel_pipeline(args.inventory, event_id=args.event, all_events=args.all_events, overwrite=args.overwrite)
+    outputs = run_sentinel_pipeline(
+        args.inventory,
+        event_id=args.event,
+        all_events=args.all_events,
+        overwrite=args.overwrite,
+        skip_existing=args.skip_existing,
+    )
     print(json.dumps(outputs, indent=2))
 
 

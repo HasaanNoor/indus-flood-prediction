@@ -40,6 +40,11 @@
     -2.4,
     -3.0
   ],
+  "export_timestamp": null,
+  "baseline_image_count": null,
+  "event_image_count": null,
+  "processing_version": "phase15_sentinel_multi_event_v1",
+  "validation_result": "passed",
   "independent_event": true,
   "parent_event_id": null
 }

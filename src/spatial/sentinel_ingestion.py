@@ -14,6 +14,8 @@ from src.spatial.grid import CanonicalGrid, grid_cells_dataframe
 from src.spatial.sentinel_alignment import NODATA_CODE, align_label_raster, inspect_raster
 from src.spatial.sentinel_inventory import SentinelEventConfig
 
+PROCESSING_VERSION = "phase15_sentinel_multi_event_v1"
+
 
 @dataclass(frozen=True)
 class EventIngestionResult:
@@ -80,6 +82,7 @@ def ingest_event_labels(event: SentinelEventConfig, grid: CanonicalGrid, labels_
     frame["flood_area_km2"] = event.flood_area_estimate_km2
     frame["source_mask_path"] = str(event.source_mask_path)
     frame["source_mask_sha256"] = source_hash
+    frame["processing_version"] = PROCESSING_VERSION
 
     if frame.duplicated(["event_id", "grid_cell_id"]).any():
         raise ValueError(f"Duplicate grid_cell_id/event_id label rows generated for {event.event_id}.")
@@ -101,6 +104,11 @@ def ingest_event_labels(event: SentinelEventConfig, grid: CanonicalGrid, labels_
         "threshold": event.selected_threshold,
         "threshold_method": event.threshold_method,
         "threshold_alternatives_tested": event.threshold_alternatives_tested,
+        "export_timestamp": event.raw.get("export_timestamp"),
+        "baseline_image_count": event.baseline_image_count,
+        "event_image_count": event.event_image_count,
+        "processing_version": PROCESSING_VERSION,
+        "validation_result": "passed",
         "independent_event": event.independent_event,
         "parent_event_id": event.parent_event_id,
     }
@@ -126,11 +134,34 @@ def valid_existing_event_outputs(labels_path: Path, metadata_path: Path, validat
         validation = json.loads(validation_path.read_text())
     except Exception:
         return False
-    required = {"event_id", "grid_cell_id", "observed_inundation_label", "permanent_water_label", "label_valid"}
+    required = {
+        "event_id",
+        "grid_cell_id",
+        "observed_inundation_label",
+        "permanent_water_label",
+        "label_valid",
+        "event_date",
+        "threshold",
+        "processing_version",
+    }
     if required.difference(labels.columns):
         return False
     if labels.empty or set(labels["event_id"].unique()) != {event_id}:
         return False
     if labels.duplicated(["event_id", "grid_cell_id"]).any():
         return False
-    return validation.get("event_id") == event_id and validation.get("status") in {"processed", "skipped_existing"}
+    if validation.get("event_id") != event_id or validation.get("status") not in {"processed", "skipped_existing"}:
+        return False
+    source_path = validation.get("source_mask_path")
+    expected_source_hash = validation.get("source_mask_sha256")
+    if source_path and expected_source_hash and Path(str(source_path)).exists():
+        if file_sha256(Path(str(source_path))) != expected_source_hash:
+            return False
+    expected_label_hash = validation.get("label_array_sha256")
+    if expected_label_hash:
+        observed = labels["observed_inundation_label"].fillna(0).astype("uint8").to_numpy()
+        permanent = labels["permanent_water_label"].fillna(0).astype("uint8").to_numpy()
+        valid = labels["label_valid"].astype("uint8").to_numpy()
+        if label_array_sha256(observed, permanent, valid) != expected_label_hash:
+            return False
+    return True

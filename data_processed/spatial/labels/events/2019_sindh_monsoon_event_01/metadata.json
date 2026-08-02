@@ -43,14 +43,27 @@
     "permanent_water_mask_path": null,
     "sentinel1_available": true,
     "mask_available": true,
-    "validation_status": "candidate_export_available",
+    "validation_status": "processed",
     "independent_event": true,
     "parent_event_id": null,
     "notes": "Local exported mask filename says threshold_24 but the current GEE script applies -3.0. Inventory records the stricter selected threshold and keeps -2.4 as an alternative sensitivity value.",
     "source_references": [
       "gee/sentinel1_flood_validation_sindh.js",
       "README Sentinel-1 threshold sensitivity table"
-    ]
+    ],
+    "processed_status": "processed",
+    "source_mask_sha256": "eb9863d1f290e9c692d996accbe184caea32260d9e2c20deca6d57cc50a6765f",
+    "raster_sha256": "eb9863d1f290e9c692d996accbe184caea32260d9e2c20deca6d57cc50a6765f",
+    "label_sha256": "db083e4440b22f8a1b128f48663cf62e1f123ce146a9a67acb7d4042b2043ddb",
+    "label_array_sha256": "db083e4440b22f8a1b128f48663cf62e1f123ce146a9a67acb7d4042b2043ddb",
+    "flood_cell_count": 17,
+    "non_flood_count": 223,
+    "permanent_water_count": 0,
+    "validation_result": "passed",
+    "processing_version": "phase15_sentinel_multi_event_v1",
+    "export_timestamp": null,
+    "baseline_image_count": null,
+    "event_image_count": null
   },
   "ingestion": {
     "event_id": "2019_sindh_monsoon_event_01",
@@ -94,6 +107,11 @@
       -2.4,
       -3.0
     ],
+    "export_timestamp": null,
+    "baseline_image_count": null,
+    "event_image_count": null,
+    "processing_version": "phase15_sentinel_multi_event_v1",
+    "validation_result": "passed",
     "independent_event": true,
     "parent_event_id": null
   }
