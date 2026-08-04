@@ -19,6 +19,12 @@ The project combines:
 
 ---
 
+## Architecture Decisions
+
+Major engineering and scientific decisions are documented as Architecture Decision Records in [`docs/adr/README.md`](docs/adr/README.md). The ADRs explain the reasoning, tradeoffs, validation, and revisit conditions behind the temporal forecasting, spatial grid, Sentinel-1 label, mapping, and data-output design choices.
+
+---
+
 ## Current Status
 
 ### Completed
